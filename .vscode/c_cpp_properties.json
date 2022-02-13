@@ -1,0 +1,17 @@
+{
+    "configurations": [
+        {
+			"name": "GLIDE-ORT",
+            "includePath": [
+				"${workspaceFolder}/third_party/xtensor/include",
+				"${workspaceFolder}/third_party/xtl/include",
+                "${workspaceFolder}/third_party/xsimd/include"
+			],
+			"defines": [ "NUMCPP_NO_USE_BOOST" ],
+            "intelliSenseMode": "windows-msvc-x64",
+            "cStandard": "c17",
+            "cppStandard": "c++17"
+        }
+    ],
+    "version": 4
+}
