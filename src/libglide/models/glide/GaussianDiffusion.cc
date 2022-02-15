@@ -57,20 +57,17 @@ namespace {
 		// if timesteps is of length 2 (as the case of the GLIDE main model), we need to make sure that both timesteps are identical
 		// otherwise this very, very hacky code will break
 		assert(timesteps.size() > 1 ? timesteps[0] == timesteps[1] : true);
-		return arr.flat(timesteps[0] /* this is gonna fucking break */) * xt::ones<double>(broadcastShape);
+		return arr.flat(timesteps[0]) * xt::ones<double>(broadcastShape);
 	}
 }
 
 class GaussianDiffusion {
 	public:
-		GaussianDiffusion(xt::xtensor<double, 1> betas) : betas(betas) {
+		GaussianDiffusion(const xt::xtensor<double, 1> betas) : betas(betas) {
 			assert(betas.shape().size() == 1);
 			assert(xt::all(betas > 0 && betas <= 1));
 
 			this->numTimesteps = betas.shape()[0];
-
-			//std::cout << betas << std::endl;
-			//std::cout << this->numTimesteps << std::endl;
 
 			auto alphas = 1.0 - betas;
 			this->alphasCumulative = xt::cumprod<double>(xt::eval(alphas), 0);
@@ -81,10 +78,6 @@ class GaussianDiffusion {
 			this->alphasCumulativeNext = xt::concatenate(xt::xtuple(xt::view(this->alphasCumulative, xt::range(1, xt::placeholders::_)), xt::xtensor<double, 1>({ 0.0 })));
 			assert(this->alphasCumulative.shape()[0] == this->alphasCumulativePrev.shape()[0]);
 
-			//std::cout << this->alphasCumulative << std::endl;
-			//std::cout << this->alphasCumulativePrev << std::endl;
-			//std::cout << this->alphasCumulativeNext << std::endl;
-
 			// calculations for diffusion q(x_t | x_{t-1}) and others
 			this->sqrtAlphasCumulative = xt::sqrt(this->alphasCumulative);
 			this->sqrtOneMinusAlphasCumulative = xt::sqrt(1.0 - this->alphasCumulative);
@@ -93,23 +86,12 @@ class GaussianDiffusion {
 			this->sqrtRecipAlphasCumulative = xt::sqrt(1.0 / this->alphasCumulative);
 			this->sqrtRecipm1AlphasCumulative = xt::sqrt(1.0 / this->alphasCumulative - 1);
 
-			//std::cout << this->sqrtAlphasCumulative << std::endl;
-			//std::cout << this->sqrtOneMinusAlphasCumulative << std::endl;
-			//std::cout << this->sqrtLogOneMinusAlphasCumulative << std::endl;
-			//std::cout << this->sqrtRecipAlphasCumulative << std::endl;
-			//std::cout << this->sqrtRecipm1AlphasCumulative << std::endl;
- 
 			// calculations for posterior q(x_{t-1} | x_t, x_0)
 			this->posteriorVariance = (betas * (1.0 - this->alphasCumulativePrev) / (1.0 - this->alphasCumulative));
 			// below: log calculation clipped because the posterior variance is 0 at the beginning of the diffusion chain
 			this->posteriorLogVarianceClipped = xt::log(xt::concatenate(xt::xtuple(xt::xtensor<double, 1>({ this->posteriorVariance[1] }), xt::view(this->posteriorVariance, xt::range(1, xt::placeholders::_)))));
 			this->posteriorMeanCoef1 = (betas * xt::sqrt(this->alphasCumulativePrev) / (1.0 - this->alphasCumulative));
 			this->posteriorMeanCoef2 = ((1.0 - this->alphasCumulativePrev) * xt::sqrt(alphas) / (1.0 - this->alphasCumulative));
-
-			//std::cout << this->posteriorVariance << std::endl;
-			//std::cout << this->posteriorLogVarianceClipped << std::endl;
-			//std::cout << this->posteriorMeanCoef1 << std::endl;
-			//std::cout << this->posteriorMeanCoef2 << std::endl;
 		}
 
 		/**
@@ -203,10 +185,11 @@ class GaussianDiffusion {
 			);
 		}
 
-		xt::xtensor<double, 1> betas;
+		const xt::xtensor<double, 1> betas;
 		int numTimesteps;
 
-		// TODO: these should be xfunction for optimizations
+	public:
+		// TODO: some of these should be xfunction for optimizations
 		xt::xtensor<double, 1> alphasCumulative;
 		xt::xtensor<double, 1> alphasCumulativePrev;
 		xt::xtensor<double, 1> alphasCumulativeNext;
