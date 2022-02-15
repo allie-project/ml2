@@ -26,12 +26,12 @@
 #include <assert.h>
 #include <algorithm>
 #include <functional>
+
 #include <xtensor/xtensor.hpp>
 #include <xtensor/xview.hpp>
 
-#include "betaSchedule.hh"
-
-#define M_PI 3.14159265358979323846
+#include "libglide/core/math.hh"
+#include "libglide/models/glide/betaSchedule.hh"
 
 namespace glide {
 

@@ -1,6 +1,16 @@
-# GLIDE: Towards Photorealistic Image Generation and Editing with Text-Guided Diffusion Models
-This repository implements the sampling parts of [OpenAI GLIDE](https://arxiv.org/abs/2112.10741) in C++. Code is adapted from [glide-text2im](https://github.com/openai/glide-text2im). You can convert the existing models in Python like so:
+<div align=center>
+	<img src="docs/assets/libglide-banner.png" width="1000" alt="libglide">
+	<h1>Neural Network Utilities</h1>
+</div>
 
-This library **is not an implementation of the model**, but rather a simple interface for both the regular & upsampling models to easily encode the prompt, run sampling, & get an output image in regular RGB format. GLIDE is tested with an ONNX Runtime version of the model, however, you can use any neural network library you want.
+libglide implements some algorithms used by certain AI models used in [Allie Project](https://github.com/allie-project/allie), as well as a framework for training & inferring simple neural networks based on [TinyDNN](https://github.com/tiny-dnn). There is a Node.js addon available [in the Allie monorepo](https://github.com/allie-project/allie/tree/master/packages/glide), but it is not currently published, you'll have to build it yourself.
 
-More documentation, benchmarks, simple API, & pre-converted ONNX & ONNX Runtime models coming soon.
+**Included model utils**:
+- ✅ [GLIDE](https://arxiv.org/abs/2112.10741)
+- ❌ [T5](https://arxiv.org/abs/1910.10683) & [mT5](https://arxiv.org/abs/2010.11934)
+- ❌ [GPT-2](https://d4mucfpksywv.cloudfront.net/better-language-models/language-models.pdf)
+- ❌ [Glow-TTS](https://arxiv.org/abs/2005.11129)
+- ❌ [HiFi-GAN](https://arxiv.org/abs/2010.05646)
+- ❌ [StyleGAN](https://arxiv.org/abs/1812.04948)
+
+libglide as a neural network framework is not intended to be used in any serious capacity. It does well only with simple classifiers and is very unoptimized. We have no intention of expanding it in the future because TinyDNN's architecture isn't that great (and besides, there's much more established and supported libs, like [ONNX Runtime](https://onnxruntime.ai), [TFLite](https://www.tensorflow.org/lite/), [Caffe2](https://caffe2.ai), [PyTorch](https://pytorch.org), etc). We will only deliver occasional optimizations and small additions.

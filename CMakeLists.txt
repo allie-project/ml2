@@ -4,15 +4,18 @@ set(CMAKE_CXX_STANDARD 14)
 
 project(glide)
 
-file(GLOB SRCS "src/**/*.cc")
+file(GLOB_RECURSE SRCS "src/**/*.cc")
 add_executable(${PROJECT_NAME} ${SRCS})
 
 target_include_directories(${PROJECT_NAME} PUBLIC
+	${CMAKE_CURRENT_SOURCE_DIR}/src
 	${CMAKE_CURRENT_SOURCE_DIR}/third_party/xsimd/include
 	${CMAKE_CURRENT_SOURCE_DIR}/third_party/xtensor/include
 	${CMAKE_CURRENT_SOURCE_DIR}/third_party/xtl/include
 )
 set(XTENSOR_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/xtensor/include)
+
+target_include_directories(${PROJECT_NAME} INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 if(NOT GLIDE_NO_OPENMP)
 	find_package(OpenMP REQUIRED)
@@ -30,8 +33,8 @@ endif()
 
 target_compile_definitions(${PROJECT_NAME} PUBLIC XSIMD_ENABLE_FALLBACK=1 XSIMD_ENABLE_XTL_COMPLEX=1)
 
-target_include_directories(glide INTERFACE $<BUILD_INTERFACE:${XTENSOR_INCLUDE_DIR} src> $<INSTALL_INTERFACE:src>)
-target_compile_features(glide INTERFACE cxx_std_14)
+target_include_directories(${PROJECT_NAME} INTERFACE $<BUILD_INTERFACE:${XTENSOR_INCLUDE_DIR} src> $<INSTALL_INTERFACE:src>)
+target_compile_features(${PROJECT_NAME} INTERFACE cxx_std_14)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
 	add_definitions(-DXTENSOR_ENABLE_ASSERT)
@@ -47,6 +50,10 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC
 )
 if(NOT GLIDE_NO_OPENMP)
 	target_link_libraries(${PROJECT_NAME} PUBLIC OpenMP::OpenMP_CXX_xtensor)
+endif()
+
+if(WIN32)
+	set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "lib")
 endif()
 
 if(MSVC)

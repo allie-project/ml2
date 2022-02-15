@@ -34,6 +34,7 @@
 #include <iostream>
 #include <chrono>
 
+#include "../../core/operators.hh"
 #include "betaSchedule.hh"
 
 namespace glide {
@@ -182,12 +183,8 @@ class GaussianDiffusion {
 			auto modelMean = std::get<0>(this->qPosteriorMeanVariance(xStart, x, t));
 
 			assert(modelMean.shape() == modelLogVariance.shape());
-			assert(xStart.shape() == modelLogVariance.shape());
-			#ifndef NDEBUG
-				auto xss = xStart.shape();
-				auto xs = x.shape();
-				assert(xss.size() == xs.size() && std::equal(xss.begin(), xss.end(), xs.begin()));
-			#endif
+			assert(modelLogVariance.shape() == xStart.shape());
+			assert(xStart.shape() == x.shape());
 
 			return modelMean;
 		}
@@ -198,6 +195,13 @@ class GaussianDiffusion {
 			return xt::eval(
 				  _extractIntoTensor(this->sqrtRecipAlphasCumulative, t, x.shape()) * x
 				- _extractIntoTensor(this->sqrtRecipm1AlphasCumulative, t, x.shape()) * eps
+			);
+		}
+
+		auto predictEpsFromXStart(xt::xtensor<T, 4> x, xt::xtensor<int, 1> t, xt::xtensor<T, 4> predXStart) {
+			return xt::eval(
+				 (_extractIntoTensor(this->sqrtRecipAlphasCumulative, t, x.shape()) * x - predXStart)
+				/ _extractIntoTensor(this->sqrtRecipm1AlphasCumulative, t, x.shape())
 			);
 		}
 

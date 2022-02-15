@@ -1,16 +1,15 @@
 {
     "configurations": [
         {
-			"name": "GLIDE-ORT",
+			"name": "libGLIDE",
+            "compileCommands": "${workspaceFolder}/build/compile_commands.json",
+            "configurationProvider": "ms-vscode.cmake-tools",
             "includePath": [
-				"${workspaceFolder}/third_party/xtensor/include",
-				"${workspaceFolder}/third_party/xtl/include",
+                "${workspaceFolder}/src",
+                "${workspaceFolder}/third_party/xtensor/include",
+                "${workspaceFolder}/third_party/xtl/include",
                 "${workspaceFolder}/third_party/xsimd/include"
-			],
-			"defines": [ "NUMCPP_NO_USE_BOOST" ],
-            "intelliSenseMode": "windows-msvc-x64",
-            "cStandard": "c17",
-            "cppStandard": "c++17"
+            ]
         }
     ],
     "version": 4

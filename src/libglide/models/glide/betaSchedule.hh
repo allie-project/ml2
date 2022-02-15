@@ -26,6 +26,7 @@
 #pragma once
 
 #include <functional>
+
 #include <xtensor/xtensor.hpp>
 
 namespace glide {
