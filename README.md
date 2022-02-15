@@ -14,3 +14,17 @@ libglide implements some algorithms used by certain AI models used in [Allie Pro
 - ❌ [StyleGAN](https://arxiv.org/abs/1812.04948)
 
 libglide as a neural network framework is not intended to be used in any serious capacity. It does well only with simple classifiers and is very unoptimized. We have no intention of expanding it in the future because TinyDNN's architecture isn't that great (and besides, there's much more established and supported libs, like [ONNX Runtime](https://onnxruntime.ai), [TFLite](https://www.tensorflow.org/lite/), [Caffe2](https://caffe2.ai), [PyTorch](https://pytorch.org), etc). We will only deliver occasional optimizations and small additions.
+
+## Building
+First, make sure submodules are synced and updated by running `git submodule sync --recursive` and `git submodule update --recursive`.
+
+Simply run:
+
+```shell
+# Configure CMake
+> cmake -S . -B build
+# Build libglide & tests
+> cmake --build build -j
+```
+
+> ℹ️ **NOTE**: If you're using Ninja, or another non-MSBuild generator on Windows, use the provided `vcvars.ps1` script to initialize Visual Studio environment variables. Otherwise, Ninja/etc won't find the correct include paths for standard headers/libraries.

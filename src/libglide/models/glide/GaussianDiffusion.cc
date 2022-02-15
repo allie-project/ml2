@@ -229,28 +229,28 @@ template class GaussianDiffusion<double>;
 
 }
 
-int main() {
-	auto x = xt::eval(xt::random::randn<double>({ 1, 3, 256, 256 }));
-	auto t = xt::eval(xt::random::randint<int>({ 1 }, 0, 1000));
-	using Clock = std::conditional_t<std::chrono::high_resolution_clock::is_steady, std::chrono::high_resolution_clock, std::chrono::steady_clock>;
-	auto start = Clock::now();
+// int main() {
+// 	auto x = xt::eval(xt::random::randn<double>({ 1, 3, 256, 256 }));
+// 	auto t = xt::eval(xt::random::randint<int>({ 1 }, 0, 1000));
+// 	using Clock = std::conditional_t<std::chrono::high_resolution_clock::is_steady, std::chrono::high_resolution_clock, std::chrono::steady_clock>;
+// 	auto start = Clock::now();
 
-	for (int i = 0; i < 1; i++) {
-		auto betas = glide::getNamedBetaSchedule(glide::BetaScheduleTypeV2::BETA_SCHEDULE_SQUAREDCOS_CAP_V2, 1000);
-		glide::GaussianDiffusion<double> gd(betas);
-		gd.pMeanVariance(
-			[](xt::xtensor<double, 4> x, xt::xtensor<int, 1> t) {
-				return xt::eval(xt::concatenate(xt::xtuple(x, x), 1));
-			},
-			x,
-			t
-		);
-	}
+// 	for (int i = 0; i < 1; i++) {
+// 		auto betas = glide::getNamedBetaSchedule(glide::BetaScheduleTypeV2::BETA_SCHEDULE_SQUAREDCOS_CAP_V2, 1000);
+// 		glide::GaussianDiffusion<double> gd(betas);
+// 		gd.pMeanVariance(
+// 			[](xt::xtensor<double, 4> x, xt::xtensor<int, 1> t) {
+// 				return xt::eval(xt::concatenate(xt::xtuple(x, x), 1));
+// 			},
+// 			x,
+// 			t
+// 		);
+// 	}
 	
-	auto end = Clock::now();
-	auto diff = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-	double seconds = diff / 1000000.0;
-	std::cout << "C++ took " << seconds << " seconds" << std::endl;
+// 	auto end = Clock::now();
+// 	auto diff = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+// 	double seconds = diff / 1000000.0;
+// 	std::cout << "C++ took " << seconds << " seconds" << std::endl;
 
-	return 0;
-}
+// 	return 0;
+// }

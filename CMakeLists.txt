@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 14)
 project(glide)
 
 file(GLOB_RECURSE SRCS "src/**/*.cc")
-add_executable(${PROJECT_NAME} ${SRCS})
+add_library(${PROJECT_NAME} SHARED ${SRCS})
 
 target_include_directories(${PROJECT_NAME} PUBLIC
 	${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -14,6 +14,9 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 	${CMAKE_CURRENT_SOURCE_DIR}/third_party/xtl/include
 )
 set(XTENSOR_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/xtensor/include)
+
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+add_subdirectory(third_party/googletest)
 
 target_include_directories(${PROJECT_NAME} INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
@@ -52,10 +55,6 @@ if(NOT GLIDE_NO_OPENMP)
 	target_link_libraries(${PROJECT_NAME} PUBLIC OpenMP::OpenMP_CXX_xtensor)
 endif()
 
-if(WIN32)
-	set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "lib")
-endif()
-
 if(MSVC)
 	add_compile_definitions($<$<CONFIG:Debug>:_ITERATOR_DEBUG_LEVEL=2>)
 	target_compile_definitions(${PROJECT_NAME} PRIVATE _SCL_SECURE_NO_WARNINGS)
@@ -85,3 +84,23 @@ string(
 	">"
 )
 target_compile_options(${PROJECT_NAME} PUBLIC ${_opts})
+
+enable_testing()
+
+file(GLOB_RECURSE TEST_SRCS "test/**/*.test.cc")
+add_executable(${PROJECT_NAME}-test ${SRCS} ${TEST_SRCS})
+target_include_directories(${PROJECT_NAME}-test PUBLIC
+	${CMAKE_CURRENT_SOURCE_DIR}/src
+	${CMAKE_CURRENT_SOURCE_DIR}/third_party/xsimd/include
+	${CMAKE_CURRENT_SOURCE_DIR}/third_party/xtensor/include
+	${CMAKE_CURRENT_SOURCE_DIR}/third_party/xtl/include
+)
+target_compile_definitions(${PROJECT_NAME}-test PUBLIC
+	XTENSOR_USE_XSIMD
+	XTENSOR_DISABLE_EXCEPTIONS
+	XTL_DISABLE_EXCEPTIONS
+)
+target_link_libraries(${PROJECT_NAME}-test gtest_main)
+
+include(GoogleTest)
+gtest_discover_tests(${PROJECT_NAME}-test)
