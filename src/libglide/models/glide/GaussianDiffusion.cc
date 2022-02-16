@@ -25,17 +25,17 @@
 
 #include <assert.h>
 #include <algorithm>
+#include <chrono>
 #include <functional>
-#include <xtensor/xtensor.hpp>
-#include <xtensor/xview.hpp>
-#include <xtensor/xrandom.hpp>
+#include <iostream>
 
 #include <xtensor/xio.hpp>
-#include <iostream>
-#include <chrono>
+#include <xtensor/xrandom.hpp>
+#include <xtensor/xtensor.hpp>
+#include <xtensor/xview.hpp>
 
-#include "../../core/operators.hh"
-#include "betaSchedule.hh"
+#include "libglide/core/operators.hh"
+#include "libglide/models/glide/betaSchedule.hh"
 
 namespace glide {
 
