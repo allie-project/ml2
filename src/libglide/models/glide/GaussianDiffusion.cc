@@ -48,7 +48,7 @@ namespace {
 	 * @param broadcastShape a larger shape of K dimensions with the batch dimension equal to the length of timesteps
 	 * @returns a tensor of shape [batchSize, 1, ...] where the shape has K dims.
 	 */
-	xt::xarray<double> _extractIntoTensor(const xt::xtensor<double, 1> arr, const xt::xtensor<int, 1> timesteps, const std::array<size_t, 4> broadcastShape) {
+	inline xt::xarray<double> _extractIntoTensor(const xt::xtensor<double, 1> arr, const xt::xtensor<int, 1> timesteps, const std::array<size_t, 4> broadcastShape) {
 		// res = th.from_numpy(arr).to(device=timesteps.device)[timesteps].float()
 		// while len(res.shape) < len(broadcast_shape):
 		// 	res = res[..., None]
