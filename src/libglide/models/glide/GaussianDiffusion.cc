@@ -61,6 +61,13 @@ namespace {
 	}
 }
 
+struct PMeanVarianceResult {
+	xt::xarray<double> mean;
+	xt::xarray<double> variance;
+	xt::xarray<double> logVariance;
+	xt::xarray<double> predXStart;
+};
+
 class GaussianDiffusion {
 	public:
 		GaussianDiffusion(const xt::xtensor<double, 1> betas) : betas(betas) {
@@ -124,7 +131,6 @@ class GaussianDiffusion {
 		 * @param clipDenoised if true, clip the denoised signal into [-1, 1]
 		 * @param denoisedFn if not null, a function which applies to the x_start prediction before it is used to sample. Applies before clip_denoised.
 		 * @param modelArgs additional arguments to pass to the model. This can be used for conditioning.
-		 * @return a tuple of (mean, variance, log_variance, pred_xstart)
 		 */
 		template<typename Model, typename ...ModelArgs>
 		auto pMeanVariance(
@@ -145,7 +151,7 @@ class GaussianDiffusion {
 				modelOutput.shape()[2] == x.shape()[2] &&
 				modelOutput.shape()[3] == x.shape()[3]);
 			
-			// PERF: this is slow (<= 14ms)
+			// PERF: this is slow apparently (<= 14ms)
 			auto outputTuple = xt::split(modelOutput, 2, 1);
 			auto output = outputTuple[0], varValues = outputTuple[1];
 			auto minLog = _extractIntoTensor(this->posteriorLogVarianceClipped, t, x.shape());
@@ -166,7 +172,13 @@ class GaussianDiffusion {
 			assert(modelLogVariance.shape() == xStart.shape());
 			assert(xStart.shape() == x.shape());
 
-			return modelMean;
+			PMeanVarianceResult result = {
+				modelMean,
+				modelVariance,
+				modelLogVariance,
+				xStart
+			};
+			return result;
 		}
 
 	protected:
