@@ -45,6 +45,9 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
 endif()
 
 add_definitions(-DXTENSOR_DEFAULT_LAYOUT=layout_type::column_major)
+if(MSVC)
+	add_compile_options(/wd4244)
+endif()
 
 target_compile_definitions(${PROJECT_NAME} PUBLIC
 	XTENSOR_USE_XSIMD
@@ -61,10 +64,12 @@ if(MSVC)
 	target_compile_options(${PROJECT_NAME} PRIVATE
 		/nologo
 		/EHsc
-		/arch:SSE /arch:SSE2
 		/arch:AVX /arch:AVX2
 		/wd4396 /wd4309 /wd4244
 	)
+	if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86")
+		target_compile_options(${PROJECT_NAME} PRIVATE /arch:SSE /arch:SSE2)
+	endif()
 	if(CMAKE_BUILD_TYPE STREQUAL "Release")
 		target_compile_options(${PROJECT_NAME} PRIVATE
 			/ltcg /MP /bigobj
