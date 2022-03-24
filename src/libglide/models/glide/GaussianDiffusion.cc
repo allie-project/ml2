@@ -48,13 +48,13 @@ namespace {
 	 * @param broadcastShape a larger shape of K dimensions with the batch dimension equal to the length of timesteps
 	 * @returns a tensor of shape [batchSize, 1, ...] where the shape has K dims.
 	 */
-	inline xt::xarray<double> _extractIntoTensor(const xt::xtensor<double, 1> arr, const xt::xtensor<int, 1> timesteps, const std::array<size_t, 4> broadcastShape) {
+	inline xt::xarray<double> extractIntoTensor(const xt::xtensor<double, 1> arr, const xt::xtensor<int, 1> timesteps, const std::array<size_t, 4> broadcastShape) {
 		// res = th.from_numpy(arr).to(device=timesteps.device)[timesteps].float()
 		// while len(res.shape) < len(broadcast_shape):
 		// 	res = res[..., None]
 		// return res + th.zeros(broadcast_shape, device=timesteps.device)
 
-		// if timesteps is of length 2 (as the case of the GLIDE main model), we need to make sure that both timesteps are identical
+		// if timesteps is of length 2 (as is the case in the GLIDE main model), we need to make sure that both timesteps are identical
 		// otherwise this very, very hacky code will break
 		assert(timesteps.size() > 1 ? timesteps[0] == timesteps[1] : true);
 		return arr.flat(timesteps[0]) * xt::ones<double>(broadcastShape);
@@ -109,11 +109,11 @@ class GaussianDiffusion {
 		auto qPosteriorMeanVariance(xt::xtensor<double, 4> xStart, xt::xtensor<double, 4> x_t, xt::xtensor<double, 1> t) {
 			assert(xStart.shape() == x_t.shape());
 			auto posteriorMean = (
-				  _extractIntoTensor(this->posteriorMeanCoef1, t, x_t.shape()) * xStart
-				+ _extractIntoTensor(this->posteriorMeanCoef2, t, x_t.shape()) * x_t
+				  extractIntoTensor(this->posteriorMeanCoef1, t, x_t.shape()) * xStart
+				+ extractIntoTensor(this->posteriorMeanCoef2, t, x_t.shape()) * x_t
 			);
-			auto posteriorVariance = _extractIntoTensor(this->posteriorVariance, t, x_t.shape());
-			auto posteriorLogVarianceClipped = _extractIntoTensor(this->posteriorLogVarianceClipped, t, x_t.shape());
+			auto posteriorVariance = extractIntoTensor(this->posteriorVariance, t, x_t.shape());
+			auto posteriorLogVarianceClipped = extractIntoTensor(this->posteriorLogVarianceClipped, t, x_t.shape());
 			assert(
 				posteriorMean.shape()[0] == posteriorVariance.shape()[0] &&
 				posteriorVariance.shape()[0] == posteriorLogVarianceClipped.shape()[0] &&
@@ -154,8 +154,8 @@ class GaussianDiffusion {
 			// PERF: this is slow apparently (<= 14ms)
 			auto outputTuple = xt::split(modelOutput, 2, 1);
 			auto output = outputTuple[0], varValues = outputTuple[1];
-			auto minLog = _extractIntoTensor(this->posteriorLogVarianceClipped, t, x.shape());
-			auto maxLog = _extractIntoTensor(xt::eval(xt::log(this->betas)), t, x.shape());
+			auto minLog = extractIntoTensor(this->posteriorLogVarianceClipped, t, x.shape());
+			auto maxLog = extractIntoTensor(xt::eval(xt::log(this->betas)), t, x.shape());
 			auto frac = (varValues + 1) / 2;
 			auto modelLogVariance = frac * maxLog + (1 - frac) * minLog;
 			auto modelVariance = xt::exp(modelLogVariance);
@@ -172,28 +172,77 @@ class GaussianDiffusion {
 			assert(modelLogVariance.shape() == xStart.shape());
 			assert(xStart.shape() == x.shape());
 
-			PMeanVarianceResult result = {
+			return PMeanVarianceResult {
 				modelMean,
 				modelVariance,
 				modelLogVariance,
 				xStart
 			};
-			return result;
+		}
+
+		/**
+		 * Compute the mean for the previous step, given a function cond_fn that
+		 * computes the gradient of a conditional log probability with respect to
+		 * x. In particular, cond_fn computes grad(log(p(y|x))), and we want to
+		 * condition on y.
+		 *
+		 * This uses the conditioning strategy from Sohl-Dickstein et al. (2015).
+		 */
+		template<typename CondFn, typename ...ModelArgs>
+		auto conditionMean(
+			CondFn condFn,
+			PMeanVarianceResult pMeanVar,
+			xt::xtensor<double, 4> x,
+			xt::xtensor<int, 1> t,
+			ModelArgs&&... modelArgs
+		) {
+			auto gradient = condFn(x, t, modelArgs...);
+			return pMeanVar.mean + pMeanVar.variance * gradient;
+		}
+
+		/**
+		 * Compute what the p_mean_variance output would have been, should the model's
+		 * score function be conditioned by cond_fn.
+		 *
+		 * See `conditionMean()` for details on cond_fn.
+		 *
+		 * Unlike `conditionMean()`, this instead uses the conditioning strategy from
+		 * Song et al (2020).
+		 */
+		template<typename CondFn, typename ...ModelArgs>
+		auto conditionScore(
+			CondFn condFn,
+			PMeanVarianceResult pMeanVar,
+			xt::xtensor<double, 4> x,
+			xt::xtensor<int, 1> t,
+			ModelArgs&&... modelArgs
+		) {
+			auto alphaBar = extractIntoTensor(this->alphasCumulative, t, x.shape());
+
+			auto eps = this->predictEpsFromXStart(x, t, pMeanVar.predXStart);
+			eps = eps - xt::sqrt(1 - alphaBar) * condFn(x, t, modelArgs...);
+
+			return PMeanVarianceResult {
+				std::get<0>(this->qPosteriorMeanVariance(pMeanVar.predXStart, x, t)),
+				pMeanVar.variance,
+				pMeanVar.logVariance,
+				this->predictXStartFromEps(x, t, eps)
+			};
 		}
 
 	protected:
 		auto predictXStartFromEps(xt::xtensor<double, 4> x, xt::xtensor<int, 1> t, xt::xtensor<double, 4> eps) {
 			assert(x.shape() == eps.shape());
 			return xt::eval(
-				  _extractIntoTensor(this->sqrtRecipAlphasCumulative, t, x.shape()) * x
-				- _extractIntoTensor(this->sqrtRecipm1AlphasCumulative, t, x.shape()) * eps
+				  extractIntoTensor(this->sqrtRecipAlphasCumulative, t, x.shape()) * x
+				- extractIntoTensor(this->sqrtRecipm1AlphasCumulative, t, x.shape()) * eps
 			);
 		}
 
 		auto predictEpsFromXStart(xt::xtensor<double, 4> x, xt::xtensor<int, 1> t, xt::xtensor<double, 4> predXStart) {
 			return xt::eval(
-				 (_extractIntoTensor(this->sqrtRecipAlphasCumulative, t, x.shape()) * x - predXStart)
-				/ _extractIntoTensor(this->sqrtRecipm1AlphasCumulative, t, x.shape())
+				 (extractIntoTensor(this->sqrtRecipAlphasCumulative, t, x.shape()) * x - predXStart)
+				/ extractIntoTensor(this->sqrtRecipm1AlphasCumulative, t, x.shape())
 			);
 		}
 
