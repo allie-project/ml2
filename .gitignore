@@ -94,3 +94,6 @@ bazel-*
 
 # Private
 **/devel-resources
+
+# clangd cache
+.cache/
