@@ -1,0 +1,63 @@
+[package]
+name = "libglide"
+version = "0.1.0"
+authors = [
+	"pyke.io",
+    "Luca Palmieri <rust@lpalmieri.com>",
+    "Lorenz Schmidt <bytesnake@mailbox.org>",
+    "Paul Körbitz <koerbitz@google.com>"
+]
+description = "Neural network utilities"
+edition = "2021"
+license = "MIT/Apache-2.0"
+repository = "https://github.com/allie-project/libglide"
+readme = "README.md"
+keywords = [ "machine-learning", "ai", "ml" ]
+categories = [ "algorithms", "mathematics", "science" ]
+exclude = [ ".github/", ".vscode/", "test/" ]
+
+[lib]
+crate-type = [ "lib", "dylib" ]
+name = "glide"
+
+[features]
+default = []
+
+netlib-static = ["blas", "ndarray-linalg/netlib-static"]
+netlib-system = ["blas", "ndarray-linalg/netlib-system"]
+
+openblas-static = ["blas", "ndarray-linalg/openblas-static"]
+openblas-system = ["blas", "ndarray-linalg/openblas-system"]
+
+intel-mkl-static = [ "blas", "ndarray-linalg/intel-mkl-static" ]
+intel-mkl-system = [ "blas", "ndarray-linalg/intel-mkl-system" ]
+
+blas = [ "ndarray/blas" ]
+serde = [ "serde_crate", "ndarray/serde" ]
+
+[dependencies]
+num-traits = "0.2"
+rand = { version = "0.8", features = [ "small_rng" ] }
+approx = "0.4"
+ndarray = { version = "0.15", features = [ "approx" ] }
+ndarray-linalg = { version = "0.14", optional = true }
+thiserror = "1.0"
+anyhow = { version = "<=1.0.48" }
+
+[dependencies.serde_crate]
+package = "serde"
+optional = true
+version = "1.0"
+default-features = false
+features = [ "std", "derive" ]
+
+[dev-dependencies]
+ndarray-npy = "0.8"
+ndarray-rand = "0.14"
+libglide-datasets = { path = "datasets", features = [ "winequality", "iris", "diabetes" ] }
+
+[workspace]
+members = [ "datasets" ]
+
+[profile.release]
+opt-level = 3
