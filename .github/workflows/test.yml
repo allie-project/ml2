@@ -1,6 +1,8 @@
 name: Run cargo tests
 on:
   push:
+    branches:
+      - 'main'
     paths:
       - '.github/workflows/test.yml'
       - 'src/**/*.rs'
