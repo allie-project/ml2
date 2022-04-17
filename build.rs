@@ -32,7 +32,7 @@ impl FromStr for Architecture {
 			"x86" => Ok(Architecture::X86),
 			"x86_64" => Ok(Architecture::X86_64),
 			"arm" => Ok(Architecture::Arm),
-			"arm64" => Ok(Architecture::Arm64),
+			"aarch64" => Ok(Architecture::Arm64),
 			_ => Err(format!("Unsupported architecture: {}", s))
 		}
 	}
@@ -120,10 +120,11 @@ impl OnnxPrebuiltArchive for Triplet {
 			| (Os::Windows, Architecture::Arm, Accelerator::None)
 			| (Os::Windows, Architecture::Arm64, Accelerator::None)
 			| (Os::Linux, Architecture::X86_64, Accelerator::None)
-			| (Os::MacOS, Architecture::X86_64, Accelerator::None)
 			| (Os::MacOS, Architecture::Arm64, Accelerator::None) => format!("{}-{}", self.os.as_onnx_str(), self.arch.as_onnx_str()).into(),
 			// for some reason, arm64/Linux uses `aarch64` instead of `arm64`
 			(Os::Linux, Architecture::Arm64, Accelerator::None) => format!("{}-{}", self.os.as_onnx_str(), "aarch64").into(),
+			// for another odd reason, x64/macOS uses `x86_64` instead of `x64`
+			(Os::MacOS, Architecture::X86_64, Accelerator::None) => format!("{}-{}", self.os.as_onnx_str(), "x86_64").into(),
 			(Os::Windows, Architecture::X86_64, Accelerator::Gpu) | (Os::Linux, Architecture::X86_64, Accelerator::Gpu) => {
 				format!("{}-{}-{}", self.os.as_onnx_str(), self.arch.as_onnx_str(), self.accelerator.as_onnx_str()).into()
 			}
