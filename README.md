@@ -3,7 +3,7 @@
 	<h1>Neural Network Utilities</h1>
 </div>
 
-libglide is the primary AI library used by [Allie Project](https://github.com/allie-project/allie). It provides simplified interfaces for a few ONNX Runtime models and a neural network framework based on [linfa](https://github.com/rust-ml/linfa).
+libglide is the primary AI library used by [Allie Project](https://github.com/allie-project/allie). It provides simplified interfaces for a few ONNX Runtime models, a neural network framework based on [linfa](https://github.com/rust-ml/linfa), and ONNX Runtime bindings based on [onnxruntime-rs](https://github.com/nbigaouette/onnxruntime-rs).
 
 **Included model interfaces**:
 - ❌ [GLIDE](https://arxiv.org/abs/2112.10741)

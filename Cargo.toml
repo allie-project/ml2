@@ -32,8 +32,17 @@ openblas-system = ["blas", "ndarray-linalg/openblas-system"]
 intel-mkl-static = [ "blas", "ndarray-linalg/intel-mkl-static" ]
 intel-mkl-system = [ "blas", "ndarray-linalg/intel-mkl-system" ]
 
+cuda = []
 blas = [ "ndarray/blas" ]
 serde = [ "serde_crate", "ndarray/serde" ]
+
+generate-bindings = [ "bindgen" ]
+
+# used to prevent issues with docs.rs
+disable-sys-build-script = []
+
+[package.metadata.docs.rs]
+features = [ "disable-sys-build-script" ]
 
 [dependencies]
 num-traits = "0.2"
@@ -55,6 +64,17 @@ features = [ "std", "derive" ]
 ndarray-npy = "0.8"
 ndarray-rand = "0.14"
 libglide-datasets = { path = "datasets", features = [ "winequality", "iris", "diabetes" ] }
+
+[build-dependencies]
+bindgen = { version = "0.59", optional = true }
+ureq = "2.1"
+
+[target.'cfg(target_os = "windows")'.build-dependencies]
+zip = { version = "0.6", default-features = false, features = [ "deflate" ] }
+
+[target.'cfg(not(target_os = "windows"))'.build-dependencies]
+flate2 = "1.0"
+tar = "0.4"
 
 [workspace]
 members = [ "datasets" ]
