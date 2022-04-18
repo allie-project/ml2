@@ -4,6 +4,8 @@
 // Disable clippy and `u128` not being FFI-safe
 #![allow(clippy::all)]
 #![allow(improper_ctypes)]
+// bindgen-rs generates test code that dereferences null pointers
+#![allow(deref_nullptr)]
 
 include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/onnx/bindings/bindings.rs"));
 
