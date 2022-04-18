@@ -3,6 +3,7 @@ name = "libglide"
 version = "0.1.0"
 authors = [
 	"pyke.io",
+	"Nicolas Bigaouette <nbigaouette@gmail.com>",
     "Luca Palmieri <rust@lpalmieri.com>",
     "Lorenz Schmidt <bytesnake@mailbox.org>",
     "Paul Körbitz <koerbitz@google.com>"
@@ -21,7 +22,7 @@ crate-type = [ "lib", "dylib" ]
 name = "glide"
 
 [features]
-default = []
+default = [ "half", "use-half-intrinsics" ]
 
 netlib-static = ["blas", "ndarray-linalg/netlib-static"]
 netlib-system = ["blas", "ndarray-linalg/netlib-system"]
@@ -36,13 +37,18 @@ cuda = []
 blas = [ "ndarray/blas" ]
 serde = [ "serde_crate", "ndarray/serde" ]
 
+use-half-intrinsics = [ "half/use-intrinsics" ]
+onnx-fetch-models = [ "ureq" ]
 generate-bindings = [ "bindgen" ]
-
 # used to prevent issues with docs.rs
 disable-sys-build-script = []
 
 [package.metadata.docs.rs]
 features = [ "disable-sys-build-script" ]
+
+[[test]]
+name = "libglide-test"
+required-features = [ "onnx-fetch-models" ]
 
 [dependencies]
 num-traits = "0.2"
@@ -52,6 +58,10 @@ ndarray = { version = "0.15", features = [ "approx" ] }
 ndarray-linalg = { version = "0.14", optional = true }
 thiserror = "1.0"
 anyhow = { version = "<=1.0.48" }
+ureq = { version = "2.1", optional = true }
+lazy_static = "1.4"
+tracing = "0.1"
+half = { optional = true, version = "1.8" }
 
 [dependencies.serde_crate]
 package = "serde"
@@ -61,6 +71,10 @@ default-features = false
 features = [ "std", "derive" ]
 
 [dev-dependencies]
+ureq = "2.1"
+image = "0.24"
+test-log = { version = "0.2", default-features = false, features = [ "trace" ] }
+tracing-subscriber = { version = "0.3", default-features = false, features = [ "env-filter", "fmt" ] }
 ndarray-npy = "0.8"
 ndarray-rand = "0.14"
 libglide-datasets = { path = "datasets", features = [ "winequality", "iris", "diabetes" ] }
