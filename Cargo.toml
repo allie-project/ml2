@@ -22,7 +22,7 @@ crate-type = [ "lib", "dylib" ]
 name = "glide"
 
 [features]
-default = [ "half", "use-half-intrinsics" ]
+default = [ "half" ]
 
 netlib-static = ["blas", "ndarray-linalg/netlib-static"]
 netlib-system = ["blas", "ndarray-linalg/netlib-system"]
