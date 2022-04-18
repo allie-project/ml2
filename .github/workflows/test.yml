@@ -32,5 +32,6 @@ jobs:
           toolchain: stable
       - uses: Swatinem/rust-cache@v1
       - name: Run tests
+        # do not run doctests until rust-lang/cargo#10469 is merged
         run: |
-          cargo test --verbose
+          cargo test --verbose --lib
