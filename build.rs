@@ -296,7 +296,18 @@ fn prepare_libort_dir() -> PathBuf {
 			println!("[glide] assuming C/C++ compilers are available");
 
 			Command::new("git")
-				.args(&["clone", "--depth", "1", "--shallow-submodules", "--recursive", ORT_GIT_REPO, ORT_GIT_DIR])
+				.args(&[
+					"clone",
+					"--depth",
+					"1",
+					"--single-branch",
+					"--branch",
+					&format!("v{}", env::var("CARGO_PKG_VERSION").unwrap()),
+					"--shallow-submodules",
+					"--recursive",
+					ORT_GIT_REPO,
+					ORT_GIT_DIR
+				])
 				.current_dir(&out_dir)
 				.stdout(Stdio::null())
 				.stderr(Stdio::null())
