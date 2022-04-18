@@ -82,8 +82,6 @@ libglide-datasets = { path = "datasets", features = [ "winequality", "iris", "di
 [build-dependencies]
 bindgen = { version = "0.59", optional = true }
 ureq = "2.1"
-
-[target.'cfg(target_os = "windows")'.build-dependencies]
 zip = { version = "0.6", default-features = false, features = [ "deflate" ] }
 
 [target.'cfg(not(target_os = "windows"))'.build-dependencies]
