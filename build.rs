@@ -13,6 +13,7 @@ const ORT_ENV_STRATEGY: &str = "ORT_STRATEGY";
 const ORT_ENV_SYSTEM_LIB_LOCATION: &str = "ORT_LIB_LOCATION";
 const ORT_ENV_CMAKE_TOOLCHAIN: &str = "ORT_CMAKE_TOOLCHAIN";
 const ORT_ENV_CMAKE_PROGRAM: &str = "ORT_CMAKE_PROGRAM";
+const ORT_ENV_PYTHON_PROGRAM: &str = "ORT_PYTHON_PROGRAM";
 const ORT_EXTRACT_DIR: &str = "onnxruntime";
 const ORT_GIT_DIR: &str = "onnxruntime";
 const ORT_GIT_REPO: &str = "https://github.com/microsoft/onnxruntime";
@@ -246,11 +247,42 @@ fn extract_zip(filename: &Path, outpath: &Path) {
 	}
 }
 
-fn prepare_libort_dir() -> PathBuf {
+fn copy_libraries(lib_dir: &Path, out_dir: &Path) {
+	// get the target directory - we need to place the dlls next to the executable so they can be properly loaded by windows
+	let out_dir = out_dir.parent().unwrap().parent().unwrap().parent().unwrap();
+
+	let lib_files = fs::read_dir(&lib_dir).unwrap();
+	for lib_file in lib_files.filter(|e| {
+		e.as_ref()
+			.ok()
+			.map(|e| {
+				println!("Copying {}", e.path().display());
+				e.file_type().map(|e| e.is_file()).unwrap_or(false)
+					&& e.path()
+						.extension()
+						.map(|e| ["dll", "so", "dylib"].contains(&e.to_str().unwrap()))
+						.unwrap_or(false)
+			})
+			.unwrap_or(false)
+	}) {
+		let lib_file = lib_file.unwrap();
+		let lib_path = lib_file.path();
+		let lib_name = lib_path.file_name().unwrap();
+		let out_path = out_dir.join(lib_name);
+		fs::copy(&lib_path, &out_path).unwrap();
+	}
+}
+
+fn prepare_libort_dir() -> (PathBuf, bool) {
 	let strategy = env::var(ORT_ENV_STRATEGY);
 	println!("[glide] strategy: {:?}", strategy.as_ref().map(String::as_str).unwrap_or_else(|_| "unknown"));
-	match strategy.as_ref().map(String::as_str) {
-		Ok("download") | Err(_) => {
+
+	match strategy
+		.as_ref()
+		.map(String::as_str)
+		.unwrap_or_else(|_| if cfg!(feature = "prefer-compile") { "compile" } else { "download" })
+	{
+		"download" => {
 			let (prebuilt_archive, prebuilt_url) = prebuilt_onnx_url();
 
 			let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
@@ -268,15 +300,30 @@ fn prepare_libort_dir() -> PathBuf {
 				extract_archive(&downloaded_file, &extract_dir);
 			}
 
-			extract_dir.join(prebuilt_archive.file_stem().unwrap())
-		}
-		Ok("system") => PathBuf::from(match env::var(ORT_ENV_SYSTEM_LIB_LOCATION) {
-			Ok(p) => p,
-			Err(e) => {
-				panic!("[glide] system strategy requires ORT_LIB_LOCATION env var to be set: {}", e);
+			let lib_dir = extract_dir.join(prebuilt_archive.file_stem().unwrap());
+			#[cfg(feature = "copy-dylibs")]
+			{
+				copy_libraries(&lib_dir.join("lib"), &out_dir);
+				println!("cargo:rustc-link-arg=-Wl,-rpath='$ORIGIN'");
+				return (lib_dir, false);
 			}
-		}),
-		Ok("compile") => {
+
+			#[allow(unreachable_code)]
+			(lib_dir, true)
+		}
+		"system" => {
+			let lib_dir = PathBuf::from(env::var(ORT_ENV_SYSTEM_LIB_LOCATION).expect("[glide] system strategy requires ORT_LIB_LOCATION env var to be set"));
+			#[cfg(feature = "copy-dylibs")]
+			{
+				copy_libraries(&lib_dir.join("lib"), &PathBuf::from(env::var("OUT_DIR").unwrap()));
+				println!("cargo:rustc-link-arg=-Wl,-rpath='$ORIGIN'");
+				return (lib_dir, false);
+			}
+
+			#[allow(unreachable_code)]
+			(lib_dir, true)
+		}
+		"compile" => {
 			use std::process::Command;
 
 			let target = env::var("TARGET").unwrap();
@@ -285,6 +332,14 @@ fn prepare_libort_dir() -> PathBuf {
 			}
 
 			let cmake = env::var(ORT_ENV_CMAKE_PROGRAM).unwrap_or_else(|_| "cmake".to_string());
+			let python = env::var(ORT_ENV_PYTHON_PROGRAM).unwrap_or_else(|_| {
+				if Command::new("python").arg("--version").status().unwrap().success() {
+					"python".to_string()
+				} else {
+					"python3".to_string()
+				}
+			});
+
 			let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
 			let required_cmds: &[&str] = &[&cmake, "python", "git"];
 			for cmd in required_cmds {
@@ -302,7 +357,7 @@ fn prepare_libort_dir() -> PathBuf {
 					"1",
 					"--single-branch",
 					"--branch",
-					&format!("v{}", env::var("CARGO_PKG_VERSION").unwrap()),
+					&format!("v{}", ORT_VERSION),
 					"--shallow-submodules",
 					"--recursive",
 					ORT_GIT_REPO,
@@ -356,10 +411,102 @@ fn prepare_libort_dir() -> PathBuf {
 				println!("[glide] detected cross compilation to Windows arm64, default toolchain will make bad assumptions.");
 			}
 
-			// TODO
-			panic!("[glide] compile strategy not implemented");
+			let mut command = Command::new(python);
+			command
+				.current_dir(&out_dir.join(ORT_GIT_DIR))
+				.stdout(Stdio::null())
+				.stderr(Stdio::inherit());
 
-			out_dir
+			// note: --parallel will probably break something... parallel build *while* doing another parallel build (cargo)?
+			let mut build_args = vec!["tools/ci_build/build.py", "--build", "--update", "--parallel", "--skip_tests", "--skip_submodule_sync"];
+			let config = if cfg!(debug_assertions) {
+				"Debug"
+			} else if cfg!(feature = "minimal-build") {
+				"MinSizeRel"
+			} else {
+				"Release"
+			};
+			build_args.push("--config");
+			build_args.push(config);
+
+			if cfg!(feature = "minimal-build") {
+				build_args.push("--disable_exceptions");
+			}
+
+			build_args.push("--disable_rtti");
+
+			if target.contains("windows") {
+				build_args.push("--disable_memleak_checker");
+			}
+
+			if !cfg!(feature = "compile-static") {
+				build_args.push("--build_shared_lib");
+			}
+
+			if cfg!(feature = "crt-static") {
+				build_args.push("--enable_msvc_static_runtime");
+			}
+
+			if cfg!(target_os = "windows") {
+				// if we can use ninja, great! let's use it!
+				// note that ninja + clang on windows is a total shitstorm so it's disabled for now
+				if Command::new("ninja").arg("--version").status().unwrap().success() && !Command::new("clang-cl").arg("--version").status().unwrap().success()
+				{
+					build_args.push("--cmake_generator=Ninja");
+				} else {
+					// fuck
+					use vswhom::VsFindResult;
+					let vs_find_result = VsFindResult::search();
+					match vs_find_result {
+						Some(VsFindResult { vs_exe_path: Some(vs_exe_path), .. }) => {
+							let vs_exe_path = vs_exe_path.to_string_lossy();
+							// the one sane thing about visual studio is that the version numbers are somewhat predictable...
+							if vs_exe_path.contains("14.1") {
+								build_args.push("--cmake_generator=Visual Studio 15 2017");
+							} else if vs_exe_path.contains("14.2") {
+								build_args.push("--cmake_generator=Visual Studio 16 2019");
+							} else if vs_exe_path.contains("14.3") {
+								build_args.push("--cmake_generator=Visual Studio 17 2022");
+							}
+						}
+						Some(VsFindResult { vs_exe_path: None, .. }) | None => panic!("[glide] unable to find Visual Studio installation")
+					};
+				}
+			}
+
+			build_args.push("--build_dir=build");
+			command.args(build_args);
+
+			let code = command.status().expect("failed to run build script");
+			assert!(code.success(), "failed to build ONNX Runtime");
+
+			let lib_dir = out_dir.join(ORT_GIT_DIR).join("build").join(config);
+			let lib_dir = if cfg!(target_os = "windows") { lib_dir.join(config) } else { lib_dir };
+			for lib in &["common", "flatbuffers", "framework", "graph", "mlas", "optimizer", "providers", "session", "util"] {
+				let lib_path = lib_dir.join(if cfg!(target_os = "windows") {
+					format!("onnxruntime_{}.lib", lib)
+				} else {
+					format!("libonnxruntime_{}.a", lib)
+				});
+				// sanity check, just make sure the library exists before we try to link to it
+				if lib_path.exists() {
+					println!("cargo:rustc-link-lib=static=onnxruntime_{}", lib);
+				} else {
+					panic!("[glide] unable to find ONNX Runtime library: {}", lib_path.display());
+				}
+			}
+
+			// also need to link to onnx.lib and onnx_proto.lib
+			let external_lib_dir = lib_dir.parent().unwrap().join("external").join("onnx");
+			let external_lib_dir = if cfg!(target_os = "windows") { external_lib_dir.join(config) } else { external_lib_dir };
+			println!("cargo:rustc-link-search=native={}", external_lib_dir.display());
+			println!("cargo:rustc-link-lib=static=onnx");
+			println!("cargo:rustc-link-lib=static=onnx_proto");
+
+			println!("cargo:rustc-link-lib=onnxruntime_providers_shared");
+			println!("cargo:rustc-link-search=native={}", lib_dir.display());
+
+			(out_dir, false)
 		}
 		_ => panic!("[glide] unknown strategy: {} (valid options are `download` or `system`)", strategy.unwrap_or_else(|_| "unknown".to_string()))
 	}
@@ -412,13 +559,15 @@ fn main() {}
 
 #[cfg(not(feature = "disable-sys-build-script"))]
 fn main() {
-	let install_dir = prepare_libort_dir();
+	let (install_dir, needs_link) = prepare_libort_dir();
 
 	let include_dir = install_dir.join("include");
 	let lib_dir = install_dir.join("lib");
 
-	println!("cargo:rustc-link-lib=onnxruntime");
-	println!("cargo:rustc-link-search=native={}", lib_dir.display());
+	if needs_link {
+		println!("cargo:rustc-link-lib=onnxruntime");
+		println!("cargo:rustc-link-search=native={}", lib_dir.display());
+	}
 
 	println!("cargo:rerun-if-env-changed={}", ORT_ENV_STRATEGY);
 	println!("cargo:rerun-if-env-changed={}", ORT_ENV_SYSTEM_LIB_LOCATION);

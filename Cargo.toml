@@ -22,18 +22,17 @@ crate-type = [ "lib", "dylib" ]
 name = "glide"
 
 [features]
-default = [ "half" ]
+default = [ "half", "copy-dylibs" ]
 
-netlib-static = ["blas", "ndarray-linalg/netlib-static"]
-netlib-system = ["blas", "ndarray-linalg/netlib-system"]
+netlib-static = [ "blas", "ndarray-linalg/netlib-static" ]
+netlib-system = [ "blas", "ndarray-linalg/netlib-system" ]
 
-openblas-static = ["blas", "ndarray-linalg/openblas-static"]
-openblas-system = ["blas", "ndarray-linalg/openblas-system"]
+openblas-static = [ "blas", "ndarray-linalg/openblas-static" ]
+openblas-system = [ "blas", "ndarray-linalg/openblas-system" ]
 
 intel-mkl-static = [ "blas", "ndarray-linalg/intel-mkl-static" ]
 intel-mkl-system = [ "blas", "ndarray-linalg/intel-mkl-system" ]
 
-cuda = []
 blas = [ "ndarray/blas" ]
 serde = [ "serde_crate", "ndarray/serde" ]
 
@@ -42,6 +41,31 @@ onnx-fetch-models = [ "ureq" ]
 generate-bindings = [ "bindgen" ]
 # used to prevent issues with docs.rs
 disable-sys-build-script = []
+copy-dylibs = []
+
+# ONNX compile flags
+prefer-compile = []
+minimal-build = []
+enable-training = []
+ms-experimental = []
+use-mimalloc = []
+crt-static = []
+compile-static = [ "crt-static" ]
+
+cuda = []
+dnnl = []
+coreml = []
+openvino = []
+openmp = []
+vitis-ai = []
+tvm = []
+tensorrt = []
+migraphx = []
+directml = []
+winml = []
+acl = []
+armnn = []
+rocm = []
 
 [package.metadata.docs.rs]
 features = [ "disable-sys-build-script" ]
@@ -87,6 +111,9 @@ zip = { version = "0.6", default-features = false, features = [ "deflate" ] }
 [target.'cfg(not(target_os = "windows"))'.build-dependencies]
 flate2 = "1.0"
 tar = "0.4"
+
+[target.'cfg(target_os = "windows")'.build-dependencies]
+vswhom = "0.1"
 
 [workspace]
 members = [ "datasets" ]
