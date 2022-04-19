@@ -256,12 +256,8 @@ fn copy_libraries(lib_dir: &Path, out_dir: &Path) {
 		e.as_ref()
 			.ok()
 			.map(|e| {
-				println!("Copying {}", e.path().display());
 				e.file_type().map(|e| e.is_file()).unwrap_or(false)
-					&& e.path()
-						.extension()
-						.map(|e| ["dll", "so", "dylib"].contains(&e.to_str().unwrap()))
-						.unwrap_or(false)
+					&& [".dll", ".so", ".dylib"].into_iter().any(|v| e.path().into_os_string().into_string().unwrap().contains(v))
 			})
 			.unwrap_or(false)
 	}) {
@@ -304,11 +300,8 @@ fn prepare_libort_dir() -> (PathBuf, bool) {
 			#[cfg(feature = "copy-dylibs")]
 			{
 				copy_libraries(&lib_dir.join("lib"), &out_dir);
-				println!("cargo:rustc-link-arg=-Wl,-rpath='$ORIGIN'");
-				return (lib_dir, false);
 			}
 
-			#[allow(unreachable_code)]
 			(lib_dir, true)
 		}
 		"system" => {
@@ -316,11 +309,8 @@ fn prepare_libort_dir() -> (PathBuf, bool) {
 			#[cfg(feature = "copy-dylibs")]
 			{
 				copy_libraries(&lib_dir.join("lib"), &PathBuf::from(env::var("OUT_DIR").unwrap()));
-				println!("cargo:rustc-link-arg=-Wl,-rpath='$ORIGIN'");
-				return (lib_dir, false);
 			}
 
-			#[allow(unreachable_code)]
 			(lib_dir, true)
 		}
 		"compile" => {
