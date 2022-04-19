@@ -257,7 +257,9 @@ fn copy_libraries(lib_dir: &Path, out_dir: &Path) {
 			.ok()
 			.map(|e| {
 				e.file_type().map(|e| e.is_file()).unwrap_or(false)
-					&& [".dll", ".so", ".dylib"].into_iter().any(|v| e.path().into_os_string().into_string().unwrap().contains(v))
+					&& [".dll", ".so", ".dylib"]
+						.into_iter()
+						.any(|v| e.path().into_os_string().into_string().unwrap().contains(v))
 			})
 			.unwrap_or(false)
 	}) {
@@ -385,7 +387,7 @@ fn prepare_libort_dir() -> (PathBuf, bool) {
 				.expect("error running `protoc --help`");
 
 			let root = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-			let cmake_toolchain = env::var(ORT_ENV_CMAKE_TOOLCHAIN).map(PathBuf::from).unwrap_or(
+			let _cmake_toolchain = env::var(ORT_ENV_CMAKE_TOOLCHAIN).map(PathBuf::from).unwrap_or(
 				if cfg!(target_os = "linux") && target.contains("aarch64") && target.contains("linux") {
 					root.join("toolchains").join("default-aarch64-linux-gnu.cmake")
 				} else if cfg!(target_os = "linux") && target.contains("aarch64") && target.contains("windows") {

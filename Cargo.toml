@@ -22,7 +22,7 @@ crate-type = [ "lib", "dylib" ]
 name = "glide"
 
 [features]
-default = [ "half", "copy-dylibs" ]
+default = [ "half", "onnx-fetch-models", "copy-dylibs" ]
 
 netlib-static = [ "blas", "ndarray-linalg/netlib-static" ]
 netlib-system = [ "blas", "ndarray-linalg/netlib-system" ]
@@ -68,7 +68,7 @@ armnn = []
 rocm = []
 
 [package.metadata.docs.rs]
-features = [ "disable-sys-build-script" ]
+features = [ "disable-sys-build-script", "onnx-fetch-models", "half" ]
 
 [[test]]
 name = "libglide-test"

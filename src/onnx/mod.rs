@@ -1,6 +1,10 @@
+pub mod download;
+pub mod environment;
 pub mod error;
 pub mod memory;
+pub mod session;
 pub mod sys;
+pub mod tensor;
 
 use std::{
 	ffi::CStr,
@@ -12,17 +16,8 @@ use lazy_static::lazy_static;
 
 use self::sys::OnnxEnumInt;
 
-// Make functions `extern "stdcall"` for 32-bit Windows.
-// This behaves like `extern "system"`.
-#[cfg(all(target_os = "windows", target_arch = "x86"))]
-macro_rules! extern_system_fn {
-	($(#[$meta:meta])* fn $($tt:tt)*) => ($(#[$meta])* extern "stdcall" fn $($tt)*);
-	($(#[$meta:meta])* $vis:vis fn $($tt:tt)*) => ($(#[$meta])* $vis extern "stdcall" fn $($tt)*);
-	($(#[$meta:meta])* unsafe fn $($tt:tt)*) => ($(#[$meta])* unsafe extern "stdcall" fn $($tt)*);
-	($(#[$meta:meta])* $vis:vis unsafe fn $($tt:tt)*) => ($(#[$meta])* $vis unsafe extern "stdcall" fn $($tt)*);
-}
-
-// Make functions `extern "C"` for normal targets.
+#[macro_export]
+#[doc(hidden)]
 macro_rules! extern_system_fn {
 	($(#[$meta:meta])* fn $($tt:tt)*) => ($(#[$meta])* extern "C" fn $($tt)*);
 	($(#[$meta:meta])* $vis:vis fn $($tt:tt)*) => ($(#[$meta])* $vis extern "C" fn $($tt)*);
