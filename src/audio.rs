@@ -2,17 +2,13 @@
 
 use std::f64::consts::E;
 
-use ndarray::{
-	parallel::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator},
-	Array, Array1, Dimension, ScalarOperand, Zip
-};
+use ndarray::{parallel::prelude::*, Array, Array1, Dimension, Zip};
 use num_complex::Complex64;
 use realfft::RealFftPlanner;
 
-pub fn dynamic_range_decompression<F, D>(x: &mut ndarray::ArrayBase<ndarray::OwnedRepr<F>, D>, c: F)
+pub fn dynamic_range_decompression<D>(x: &mut Array<f64, D>, c: f64)
 where
-	D: Dimension,
-	F: num_traits::Float + ScalarOperand + Send + Sync
+	D: Dimension
 {
 	x.par_map_inplace(|x| *x = x.exp() / c);
 }
