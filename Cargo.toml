@@ -70,22 +70,22 @@ rocm = []
 [package.metadata.docs.rs]
 features = [ "disable-sys-build-script", "onnx-fetch-models", "half" ]
 
-[[test]]
-name = "libglide-test"
-required-features = [ "onnx-fetch-models" ]
-
 [dependencies]
 num-traits = "0.2"
 rand = { version = "0.8", features = [ "small_rng" ] }
-approx = "0.4"
-ndarray = { version = "0.15", features = [ "approx" ] }
+approx = { version = "0.5", features = [ "num-complex" ] }
+ndarray = { version = "0.15", features = [ "approx-0_5", "rayon" ] }
 ndarray-linalg = { version = "0.14", optional = true }
 thiserror = "1.0"
-anyhow = { version = "<=1.0.48" }
+anyhow = { version = "1.0" }
 ureq = { version = "2.1", optional = true }
 lazy_static = "1.4"
 tracing = "0.1"
 half = { optional = true, version = "1.8" }
+rustfft = "6.0"
+realfft = "3.0"
+num-complex = "0.4"
+apodize = "1.0"
 
 [dependencies.serde_crate]
 package = "serde"
