@@ -86,6 +86,7 @@ rustfft = "6.0"
 realfft = "3.0"
 num-complex = "0.4"
 apodize = "1.0"
+rayon = "1.5"
 
 [dependencies.serde_crate]
 package = "serde"

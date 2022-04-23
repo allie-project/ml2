@@ -2,9 +2,29 @@
 
 use std::f64::consts::E;
 
-use ndarray::{parallel::prelude::*, Array, Array1, Dimension, Zip};
+use ndarray::{parallel::prelude::*, s, Array, Array1, Array2, Dimension, NewAxis, Zip};
 use num_complex::Complex64;
 use realfft::RealFftPlanner;
+
+use crate::ndarray::{diff, maximum, minimum, subtract_outer};
+
+pub fn mel_basis(sr: usize, n_fft: usize, n_mels: usize, fmin: f64, fmax: f64) -> Array2<f64> {
+	let mut weights = Array::zeros((n_mels, (1 + n_fft / 2) as usize));
+	let fft_freqs = fft_frequencies(sr, n_fft);
+	let mel_f = mel_frequencies(n_mels + 2, fmin, fmax);
+	let fdiff = diff(mel_f.view(), None);
+	let ramps = subtract_outer(&mel_f, &fft_freqs);
+	for i in 0..n_mels {
+		let lower = -&ramps.slice(s![i, ..]) / fdiff[i];
+		let upper = &ramps.slice(s![i + 2, ..]) / fdiff[i + 1];
+		weights
+			.slice_mut(s![i, ..])
+			.assign(&maximum(Array::zeros(lower.raw_dim()).view(), minimum(lower.view(), upper.view()).view()));
+	}
+	let enorm = 2.0 / (&mel_f.slice(s![2..n_mels + 2]) - &mel_f.slice(s![..n_mels]));
+	weights *= &enorm.slice(s![.., NewAxis]);
+	weights
+}
 
 pub fn dynamic_range_decompression<D>(x: &mut Array<f64, D>, c: f64)
 where
@@ -148,6 +168,14 @@ mod tests {
 	use num_complex::Complex;
 
 	use super::*;
+
+	#[test]
+	fn test_mel_basis() {
+		let m = mel_basis(22050, 1024, 80, 0.0, 8000.0);
+		assert_relative_eq!(m.slice(s![0, 0..5]), array![0.0, 0.01552772, 0.02265139, 0.00712367, 0.0], epsilon = 1e-7);
+		assert_relative_eq!(m.slice(s![1, 0..5]), array![0.0, 0.0, 0.00420203, 0.01972975, 0.01844937], epsilon = 1e-7);
+		assert_relative_eq!(m.slice(s![2, 0..5]), array![0.0, 0.0, 0.0, 0.0, 0.00840405], epsilon = 1e-7);
+	}
 
 	#[test]
 	fn test_hz_to_mel() {
