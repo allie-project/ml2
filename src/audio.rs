@@ -183,7 +183,7 @@ mod tests {
 	}
 
 	#[test]
-	fn test_mel_to_hz() {
+	fn test_mels_to_hz() {
 		let mels = Array::linspace(0.0, 1000.0, 100);
 		let freqs = mels_to_hz(&mels);
 		assert_relative_eq!(freqs[0], 0.0);
