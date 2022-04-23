@@ -16,7 +16,10 @@ where
 	&tail - &head
 }
 
-pub fn subtract_outer(x: &Array1<f64>, y: &Array1<f64>) -> Array2<f64> {
+pub fn subtract_outer<'a, T: 'a>(x: &Array1<T>, y: &Array1<T>) -> Array2<T>
+where
+	T: NumOps + ScalarOperand + Copy
+{
 	let (size_x, size_y) = (x.shape()[0], y.shape()[0]);
 	Array2::from_shape_fn((size_x, size_y), |(i, j)| x[i] - y[j])
 }
