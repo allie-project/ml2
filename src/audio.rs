@@ -2,6 +2,7 @@
 
 use std::f64::consts::E;
 
+use apodize::hanning_iter;
 use ndarray::{parallel::prelude::*, s, Array, Array1, Array2, Dimension, NewAxis, Zip};
 use num_complex::Complex64;
 use realfft::RealFftPlanner;
@@ -130,13 +131,6 @@ pub fn rfft(x: &Array1<f64>) -> Array1<Complex64> {
 	let mut out = fft.make_output_vec();
 	fft.process(&mut inp, &mut out).unwrap();
 	Array1::from_vec(out)
-	// let mut planner = FftPlanner::new();
-	// let fft = planner.plan_fft(x.len(), FftDirection::Forward);
-	// let mut buffer = x.into_par_iter().map(|r| Complex64::new(*r, 0.0)).collect::<Vec<_>>();
-	// fft.process(&mut buffer);
-	// let v = Array1::from_vec(buffer);
-	// v.slice(if v.len() % 2 == 0 { s![..v.len() / 2 + 1] } else { s![..(v.len() + 1) / 2] })
-	// 	.to_owned()
 }
 
 /// Computes the inverse of rfft.
@@ -159,6 +153,30 @@ pub fn irfft(x: &Array1<Complex64>) -> Array1<f64> {
 	let len = out.len();
 	// FIXME: consider .collect_into_vec()
 	Array1::from_vec(out.into_par_iter().map(|v| v / len as f64).collect::<Vec<_>>())
+}
+
+pub fn stft(x: &Array1<f64>, fft_size: usize, hopsamp: usize) -> Array2<Complex64> {
+	let window = Array::from_iter(hanning_iter(fft_size));
+	let mut out = Array2::zeros((((x.len() - fft_size) / hopsamp) + 1, fft_size / 2 + 1));
+	let mut i = 0;
+	while i < x.len() - fft_size {
+		out.slice_mut(s![i / hopsamp, ..])
+			.assign(&rfft(&(&x.slice(s![i..i + fft_size]) * &window)));
+		i += hopsamp;
+	}
+	out
+}
+
+pub fn istft(x: &Array2<Complex64>, fft_size: usize, hopsamp: usize) -> Array1<f64> {
+	let window = Array::from_iter(hanning_iter(fft_size));
+	let time_slices = x.shape()[0];
+	let len_samples = time_slices * hopsamp + fft_size;
+	let mut out = Array::zeros(len_samples);
+	for (n, i) in (0..x.len() - fft_size).step_by(hopsamp).enumerate() {
+		let mut slice = out.slice_mut(s![i..i + fft_size]);
+		slice += &(&irfft(&x.slice(s![n, ..]).to_owned()) * &window);
+	}
+	out
 }
 
 #[cfg(test)]
@@ -255,5 +273,34 @@ mod tests {
 		// irfft(rfft(x)) == x
 		let ifft = irfft(&rfft(&x));
 		assert_relative_eq!(ifft, x, epsilon = 1e-14);
+	}
+
+	#[test]
+	fn test_stft() {
+		let x = Array::linspace(0.0, 8.0, 2048);
+		let st = stft(&x, 1024, 512);
+		assert_relative_eq!(
+			st.slice(s![0, 0..5]),
+			array![
+				Complex64::new(1022.5002445259, 0.0),
+				Complex64::new(-512.7456670332, 242.56513095118),
+				Complex64::new(0.6692609891746917, -54.63116427322409),
+				Complex64::new(0.2508115673636555, -13.645385610696632),
+				Complex64::new(0.13373740173669818, -5.456191766516999)
+			],
+			epsilon = 1e-6
+		);
+	}
+
+	#[test]
+	fn test_istft() {
+		let x = Array::linspace(0.0, 12.0, 2048);
+		let st = stft(&x, 1024, 512);
+		let ist = istft(&st, 1024, 512);
+		assert_relative_eq!(
+			ist.slice(s![0..5]),
+			array![0.0, 5.213839208544835e-13, 1.6683970642084428e-11, 1.266899190029061e-10, 5.338467801992965e-10],
+			epsilon = 1e-12
+		);
 	}
 }
