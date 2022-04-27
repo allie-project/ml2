@@ -5,9 +5,122 @@ use std::f64::consts::E;
 use apodize::hanning_iter;
 use ndarray::{parallel::prelude::*, s, Array, Array1, Array2, Dimension, NewAxis, Zip};
 use num_complex::Complex64;
+use num_traits::Float;
 use realfft::RealFftPlanner;
 
 use crate::ndarray::{diff, maximum, minimum, subtract_outer};
+
+#[derive(Copy, Clone, Debug)]
+pub struct AudioSettings {
+	pub filter_length: i16,
+	pub hop_length: i16,
+	pub win_length: i16,
+	pub mel_channels: i8,
+	pub sample_rate: i32,
+	pub sample_bytes: i8,
+	pub channels: i8,
+	pub mel_fmin: f64,
+	pub mel_fmax: Option<f64>,
+	pub ref_level_db: f64,
+	pub spec_gain: f64,
+
+	pub signal_norm: bool,
+	pub min_level_db: f64,
+	pub max_norm: f64,
+	pub clip_norm: bool,
+	pub symmetric_norm: bool,
+	pub do_dynamic_range_compression: bool,
+	pub convert_db_to_amp: bool
+}
+
+impl Default for AudioSettings {
+	fn default() -> Self {
+		Self {
+			filter_length: 1024,
+			hop_length: 256,
+			win_length: 256,
+			mel_channels: 80,
+			sample_rate: 22050,
+			sample_bytes: 2,
+			channels: 1,
+			mel_fmin: 0.0,
+			mel_fmax: Some(8000.0),
+			ref_level_db: 20.0,
+			spec_gain: 1.0,
+
+			signal_norm: false,
+			min_level_db: -100.0,
+			max_norm: 4.0,
+			clip_norm: true,
+			symmetric_norm: true,
+			do_dynamic_range_compression: true,
+			convert_db_to_amp: true
+		}
+	}
+}
+
+impl AudioSettings {
+	pub fn amp_to_db(&self, mel_amp: &Array1<f64>) -> Array1<f64> {
+		let mut m = mel_amp.clone();
+		m.par_map_inplace(|x| *x = x.max(1e-5).log10());
+		self.spec_gain * m
+	}
+
+	pub fn db_to_amp(&self, mel_db: &Array1<f64>) -> Array1<f64> {
+		let mut m = mel_db.clone();
+		m.par_map_inplace(|x| *x = 10f64.powf(*x / self.spec_gain));
+		m
+	}
+
+	pub fn normalize(&self, mel_db: &Array1<f64>) -> Array1<f64> {
+		let mel_norm = ((mel_db - self.ref_level_db) - self.min_level_db) / (-self.min_level_db);
+		if self.symmetric_norm {
+			let mut mel_norm = ((2.0 * self.max_norm) * mel_norm) - self.max_norm;
+			if self.clip_norm {
+				mel_norm.par_map_inplace(|x| *x = x.max(-self.max_norm).min(self.max_norm));
+			}
+			mel_norm
+		} else {
+			let mut mel_norm = self.max_norm * mel_norm;
+			if self.clip_norm {
+				mel_norm.par_map_inplace(|x| *x = x.max(0.0).min(self.max_norm));
+			}
+			mel_norm
+		}
+	}
+
+	pub fn denormalize(&self, mel_db: &Array1<f64>) -> Array1<f64> {
+		let mel_denorm = if self.symmetric_norm {
+			let mut mel_denorm = mel_db.clone();
+			if self.clip_norm {
+				mel_denorm.par_map_inplace(|x| *x = x.max(-self.max_norm).min(self.max_norm));
+			}
+
+			mel_denorm = ((mel_denorm + self.max_norm) * -self.min_level_db / (2.0 * self.max_norm)) + self.min_level_db;
+			mel_denorm
+		} else {
+			let mut mel_denorm = mel_db.clone();
+			if self.clip_norm {
+				mel_denorm.par_map_inplace(|x| *x = x.max(0.0).min(self.max_norm));
+			}
+
+			mel_denorm = (mel_denorm * -self.min_level_db / self.max_norm) + self.min_level_db;
+			mel_denorm
+		};
+
+		mel_denorm + self.ref_level_db
+	}
+}
+
+pub fn float_to_int16(x: &Array1<f64>, max_wav_value: Option<f64>) -> Array1<i16> {
+	let max_wav_value = max_wav_value.unwrap_or(32767.0);
+
+	let mut t = x.clone();
+	t.par_map_inplace(|x| *x = x.abs());
+	let max_abs = t.iter().fold(0.0, |a, b| a.max(*b));
+	let audio_norm = x * (max_wav_value / max_abs.max(0.01));
+	audio_norm.mapv(|x| x.max(-max_wav_value).min(max_wav_value).round() as i16)
+}
 
 pub fn mel_basis(sr: usize, n_fft: usize, n_mels: usize, fmin: f64, fmax: f64) -> Array2<f64> {
 	let mut weights = Array::zeros((n_mels, (1 + n_fft / 2) as usize));
@@ -27,11 +140,22 @@ pub fn mel_basis(sr: usize, n_fft: usize, n_mels: usize, fmin: f64, fmax: f64) -
 	weights
 }
 
-pub fn dynamic_range_decompression<D>(x: &mut Array<f64, D>, c: f64)
+pub fn dynamic_range_compression<D>(x: &Array<f64, D>, c: f64, clip_val: f64) -> Array<f64, D>
 where
 	D: Dimension
 {
-	x.par_map_inplace(|x| *x = x.exp() / c);
+	let mut x = x.clone();
+	x.par_map_inplace(|v| *v = (v.max(clip_val) * c).log(E));
+	x
+}
+
+pub fn dynamic_range_decompression<D>(x: &Array<f64, D>, c: f64) -> Array<f64, D>
+where
+	D: Dimension
+{
+	let mut x = x.clone();
+	x.par_map_inplace(|v| *v = v.exp() / c);
+	x
 }
 
 pub fn mel_frequencies(n_mels: usize, fmin: f64, fmax: f64) -> Array1<f64> {
@@ -186,6 +310,14 @@ mod tests {
 	use num_complex::Complex;
 
 	use super::*;
+
+	#[test]
+	fn test_dynamic_range_compression() {
+		let m = Array::linspace(0.0, 1000.0, 100);
+		let m_compressed = dynamic_range_compression(&m, 2.0, 1e-5);
+		let m_uncompressed = dynamic_range_decompression(&m_compressed, 2.0);
+		assert_relative_eq!(m, m_uncompressed, epsilon = 1e-5);
+	}
 
 	#[test]
 	fn test_mel_basis() {
