@@ -439,6 +439,12 @@ fn prepare_libort_dir() -> (PathBuf, bool) {
 				build_args.push("--enable_msvc_static_runtime");
 			}
 
+			// onnxruntime will still build tests when --skip_tests is enabled, this filters out most of them
+			// this "fixes" compilation on alpine: https://github.com/microsoft/onnxruntime/issues/9155
+			// but causes other compilation errors: https://github.com/microsoft/onnxruntime/issues/7571
+			build_args.push("--cmake_extra_defines");
+			build_args.push("onnxruntime_BUILD_UNIT_TESTS=0");
+
 			// if we can use ninja on windows, great! let's use it!
 			// note that ninja + clang on windows is a total shitstorm so it's disabled for now
 			#[cfg(target_os = "windows")]
