@@ -71,10 +71,16 @@ rocm = []
 features = [ "disable-sys-build-script", "onnx-fetch-models", "half" ]
 
 [dependencies]
-num-traits = "0.2"
-rand = { version = "0.8", features = [ "small_rng" ] }
-approx = { version = "0.5", features = [ "num-complex" ] }
+# core
 ndarray = { version = "0.15", features = [ "approx-0_5", "rayon" ] }
+num-complex = "0.4"
+num-traits = "0.2"
+rayon = "1.5"
+approx = { version = "0.5", features = [ "num-complex" ] }
+ndrustfft = "0.3"
+
+# onnx
+rand = { version = "0.8", features = [ "small_rng" ] }
 ndarray-linalg = { version = "0.14", optional = true }
 thiserror = "1.0"
 anyhow = { version = "1.0" }
@@ -82,9 +88,6 @@ ureq = { version = "2.1", optional = true }
 lazy_static = "1.4"
 tracing = "0.1"
 half = { optional = true, version = "1.8" }
-ndrustfft = "0.3"
-num-complex = "0.4"
-rayon = "1.5"
 
 [dependencies.serde_crate]
 package = "serde"
