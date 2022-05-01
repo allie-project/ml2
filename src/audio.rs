@@ -2,10 +2,10 @@
 
 use std::f64::consts::E;
 
-use ndarray::{parallel::prelude::*, s, Array, Array1, Array2, Dimension, NewAxis, Zip};
+use ndarray::{s, Array, Array1, Array2, Dimension, NewAxis, Zip};
+use ndrustfft::{ndfft_r2c_par, ndifft_r2c_par, R2cFftHandler};
 use num_complex::Complex64;
 use num_traits::Float;
-use realfft::RealFftPlanner;
 
 use crate::ndarray::{diff, maximum, minimum, subtract_outer};
 
@@ -249,13 +249,10 @@ pub fn mels_to_hz(mels: &Array1<f64>) -> Array1<f64> {
 
 /// Compute the one-dimensional discrete Fourier Transform for real input.
 pub fn rfft(x: &Array1<f64>) -> Array1<Complex64> {
-	let mut planner = RealFftPlanner::<f64>::new();
-	let fft = planner.plan_fft_forward(x.len());
-	// FIXME: consider .collect_into_vec()
-	let mut inp = x.par_iter().cloned().collect::<Vec<_>>();
-	let mut out = fft.make_output_vec();
-	fft.process(&mut inp, &mut out).unwrap();
-	Array1::from_vec(out)
+	let mut v = Array1::<Complex64>::zeros(x.len() / 2 + 1);
+	let mut handler = R2cFftHandler::<f64>::new(x.len());
+	ndfft_r2c_par(&x.view(), &mut v, &mut handler, 0);
+	v
 }
 
 /// Computes the inverse of rfft.
@@ -269,15 +266,11 @@ pub fn rfft(x: &Array1<f64>) -> Array1<Complex64> {
 /// real input is Hermitian-symmetric, the negative frequency terms are taken
 /// to be the complex conjugates of the corresponding positive frequency terms.
 pub fn irfft(x: &Array1<Complex64>) -> Array1<f64> {
-	let mut planner = RealFftPlanner::<f64>::new();
-	let fft = planner.plan_fft_inverse((x.len() - 1) * 2);
-	// FIXME: consider .collect_into_vec()
-	let mut inp = x.par_iter().cloned().collect::<Vec<_>>();
-	let mut out = fft.make_output_vec();
-	fft.process(&mut inp, &mut out).unwrap();
-	let len = out.len();
-	// FIXME: consider .collect_into_vec()
-	Array1::from_vec(out.into_par_iter().map(|v| v / len as f64).collect::<Vec<_>>())
+	let len = (x.len() - 1) * 2;
+	let mut v = Array1::<f64>::zeros(len);
+	let mut handler = R2cFftHandler::<f64>::new(len);
+	ndifft_r2c_par(&x.view(), &mut v, &mut handler, 0);
+	v
 }
 
 pub fn stft(x: &Array1<f64>, fft_size: usize, hopsamp: usize) -> Array2<Complex64> {
