@@ -100,7 +100,7 @@ ureq = "2.1"
 image = "0.24"
 test-log = { version = "0.2", default-features = false, features = [ "trace" ] }
 tracing-subscriber = { version = "0.3", default-features = false, features = [ "env-filter", "fmt" ] }
-ndarray-npy = "0.8"
+ndarray-npy = { version = "0.8", features = [ "num-complex-0_4", "compressed_npz" ] }
 ndarray-rand = "0.14"
 libglide-datasets = { path = "datasets", features = [ "winequality", "iris", "diabetes" ] }
 

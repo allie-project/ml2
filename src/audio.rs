@@ -296,7 +296,7 @@ pub fn istft(x: &Array2<Complex64>, fft_size: usize, hopsamp: usize) -> Array1<f
 	let time_slices = x.shape()[0];
 	let len_samples = time_slices * hopsamp + fft_size;
 	let mut out = Array::zeros(len_samples);
-	for (n, i) in (0..x.len() - fft_size).step_by(hopsamp).enumerate() {
+	for (n, i) in (0..out.len() - fft_size).step_by(hopsamp).enumerate() {
 		let mut slice = out.slice_mut(s![i..i + fft_size]);
 		slice += &(&irfft(&x.slice(s![n, ..]).to_owned()) * &window);
 	}
@@ -307,24 +307,40 @@ pub fn istft(x: &Array2<Complex64>, fft_size: usize, hopsamp: usize) -> Array1<f
 mod tests {
 	use approx::assert_relative_eq;
 	use ndarray::array;
-	use num_complex::Complex;
+	use ndarray_npy::read_npy;
 
 	use super::*;
 
 	#[test]
-	fn test_dynamic_range_compression() {
-		let m = Array::linspace(0.0, 1000.0, 100);
-		let m_compressed = dynamic_range_compression(&m, 2.0, 1e-5);
-		let m_uncompressed = dynamic_range_decompression(&m_compressed, 2.0);
-		assert_relative_eq!(m, m_uncompressed, epsilon = 1e-5);
+	fn test_mel_basis() {
+		let m = mel_basis(22050, 1024, 80, 0.0, 8000.0);
+		let larynx_mel: Array2<f64> = read_npy("test/data/larynx-mel-basis.npy").unwrap();
+		assert_relative_eq!(m, larynx_mel);
 	}
 
 	#[test]
-	fn test_mel_basis() {
-		let m = mel_basis(22050, 1024, 80, 0.0, 8000.0);
-		assert_relative_eq!(m.slice(s![0, 0..5]), array![0.0, 0.01552772, 0.02265139, 0.00712367, 0.0], epsilon = 1e-7);
-		assert_relative_eq!(m.slice(s![1, 0..5]), array![0.0, 0.0, 0.00420203, 0.01972975, 0.01844937], epsilon = 1e-7);
-		assert_relative_eq!(m.slice(s![2, 0..5]), array![0.0, 0.0, 0.0, 0.0, 0.00840405], epsilon = 1e-7);
+	fn test_dynamic_range_compression() {
+		let sample: Array1<f64> = read_npy("test/data/sample.npy").unwrap();
+		let larynx_compressed: Array1<f64> = read_npy("test/data/larynx-drc-sample.npy").unwrap();
+		let compressed = dynamic_range_compression(&sample, 1.0, 1e-5);
+		assert_relative_eq!(compressed, larynx_compressed);
+
+		let decompressed = dynamic_range_decompression(&compressed, 1.0);
+		assert_relative_eq!(sample, decompressed, epsilon = 1e-7);
+	}
+
+	#[test]
+	fn test_mel_frequencies() {
+		let freq = mel_frequencies(128, 0.0, 11025.0);
+		let larynx_mel: Array1<f64> = read_npy("test/data/larynx-mel-frequencies.npy").unwrap();
+		assert_relative_eq!(freq, larynx_mel);
+	}
+
+	#[test]
+	fn test_fft_frequencies() {
+		let freq = fft_frequencies(22050, 2048);
+		let larynx_fft: Array1<f64> = read_npy("test/data/larynx-fft-frequencies.npy").unwrap();
+		assert_relative_eq!(freq, larynx_fft);
 	}
 
 	#[test]
@@ -334,105 +350,37 @@ mod tests {
 
 	#[test]
 	fn test_mels_to_hz() {
-		let mels = Array::linspace(0.0, 1000.0, 100);
+		let mels = array![1., 2., 3., 4., 5.];
 		let freqs = mels_to_hz(&mels);
-		assert_relative_eq!(freqs[0], 0.0);
-		assert_relative_eq!(freqs[1], 673.4006734006734);
-		assert_relative_eq!(freqs[2], 1429.9623783342638);
-	}
-
-	#[test]
-	fn test_mel_frequencies() {
-		let freq = mel_frequencies(128, 0.0, 11025.0);
-		assert_relative_eq!(freq[0], 0.0);
-		assert_relative_eq!(freq[4], 104.79914851476966);
-		assert_relative_eq!(freq[127], 11025.0);
+		assert_relative_eq!(freqs, array![66.666667, 133.333334, 200.0, 266.666667, 333.333334], epsilon = 1e-5);
 	}
 
 	#[test]
 	fn test_rfft() {
-		let x = Array::linspace(0.0, 8.0, 12);
-		let fft = rfft(&x);
-		assert_relative_eq!(
-			fft,
-			array![
-				Complex::new(48.0, 0.0),
-				Complex::new(-4.3636, 16.2853),
-				Complex::new(-4.3636, 7.5580),
-				Complex::new(-4.3636, 4.3636),
-				Complex::new(-4.3636, 2.5193),
-				Complex::new(-4.3636, 1.1692),
-				Complex::new(-4.3636, 0.0)
-			],
-			epsilon = 1e-3
-		);
-	}
-
-	#[test]
-	fn test_irfft() {
-		let x = Array::linspace(0.0, 8.0, 12);
-		let y = Array::from_vec(x.into_par_iter().map(|v| Complex::new(*v, 0.0)).collect::<Vec<_>>());
-		let ifft = irfft(&y);
-		assert_relative_eq!(
-			ifft,
-			array![
-				4.0,
-				-1.6322033083870493,
-				-8.074349270001139e-17,
-				-0.19156238939459738,
-				0.0,
-				-0.07708621465041189,
-				-8.074349270001139e-17,
-				-0.04671117790330436,
-				0.0,
-				-0.03590798404480271,
-				2.0185873175002847e-17,
-				-0.03305785123966951,
-				2.0185873175002847e-17,
-				-0.03590798404480281,
-				0.0,
-				-0.046711177903304237,
-				-8.074349270001139e-17,
-				-0.0770862146504119,
-				0.0,
-				-0.19156238939459738,
-				-8.074349270001139e-17,
-				-1.632203308387049
-			],
-			epsilon = 1e-5
-		);
+		let sample: Array1<f64> = read_npy("test/data/sample.npy").unwrap();
+		let numpy_fft: Array1<Complex64> = read_npy("test/data/numpy-rfft-sample.npy").unwrap();
+		let fft = rfft(&sample);
+		assert_relative_eq!(fft, numpy_fft, epsilon = 1e-10);
 
 		// irfft(rfft(x)) == x
-		let ifft = irfft(&rfft(&x));
-		assert_relative_eq!(ifft, x, epsilon = 1e-14);
+		let ifft = irfft(&fft);
+		assert_relative_eq!(ifft, sample, epsilon = 1e-14);
 	}
 
 	#[test]
 	fn test_stft() {
-		let x = Array::linspace(0.0, 8.0, 2048);
-		let st = stft(&x, 1024, 512);
-		assert_relative_eq!(
-			st.slice(s![0, 0..5]),
-			array![
-				Complex64::new(1022.5002445259, 0.0),
-				Complex64::new(-512.7456670332, 242.56513095118),
-				Complex64::new(0.6692609891746917, -54.63116427322409),
-				Complex64::new(0.2508115673636555, -13.645385610696632),
-				Complex64::new(0.13373740173669818, -5.456191766516999)
-			],
-			epsilon = 1e-6
-		);
+		let sample: Array1<f64> = read_npy("test/data/sample.npy").unwrap();
+		let larynx_st: Array2<Complex64> = read_npy("test/data/larynx-stft-sample.npy").unwrap();
+		let st = stft(&sample, 1024, 256);
+		assert_relative_eq!(st, larynx_st, epsilon = 1e-10);
 	}
 
 	#[test]
 	fn test_istft() {
-		let x = Array::linspace(0.0, 12.0, 2048);
-		let st = stft(&x, 1024, 512);
-		let ist = istft(&st, 1024, 512);
-		assert_relative_eq!(
-			ist.slice(s![0..5]),
-			array![0.0, 5.213839208544835e-13, 1.6683970642084428e-11, 1.266899190029061e-10, 5.338467801992965e-10],
-			epsilon = 1e-12
-		);
+		let sample: Array1<f64> = read_npy("test/data/sample.npy").unwrap();
+		let larynx_ist: Array1<f64> = read_npy("test/data/larynx-istft-sample.npy").unwrap();
+		let st = stft(&sample, 1024, 256);
+		let ist = istft(&st, 1024, 256);
+		assert_relative_eq!(ist, /* sample */ larynx_ist, epsilon = 1e-10);
 	}
 }
