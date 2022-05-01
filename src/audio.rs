@@ -2,13 +2,14 @@
 
 use std::f64::consts::E;
 
-use apodize::hanning_iter;
 use ndarray::{parallel::prelude::*, s, Array, Array1, Array2, Dimension, NewAxis, Zip};
 use num_complex::Complex64;
 use num_traits::Float;
 use realfft::RealFftPlanner;
 
 use crate::ndarray::{diff, maximum, minimum, subtract_outer};
+
+pub mod window;
 
 #[derive(Copy, Clone, Debug)]
 pub struct AudioSettings {
@@ -280,19 +281,17 @@ pub fn irfft(x: &Array1<Complex64>) -> Array1<f64> {
 }
 
 pub fn stft(x: &Array1<f64>, fft_size: usize, hopsamp: usize) -> Array2<Complex64> {
-	let window = Array::from_iter(hanning_iter(fft_size));
+	let window = window::hanning::<f64>(fft_size);
 	let mut out = Array2::zeros((((x.len() - fft_size) / hopsamp) + 1, fft_size / 2 + 1));
-	let mut i = 0;
-	while i < x.len() - fft_size {
+	for i in (0..x.len() - fft_size).step_by(hopsamp) {
 		out.slice_mut(s![i / hopsamp, ..])
 			.assign(&rfft(&(&x.slice(s![i..i + fft_size]) * &window)));
-		i += hopsamp;
 	}
 	out
 }
 
 pub fn istft(x: &Array2<Complex64>, fft_size: usize, hopsamp: usize) -> Array1<f64> {
-	let window = Array::from_iter(hanning_iter(fft_size));
+	let window = window::hanning::<f64>(fft_size);
 	let time_slices = x.shape()[0];
 	let len_samples = time_slices * hopsamp + fft_size;
 	let mut out = Array::zeros(len_samples);
