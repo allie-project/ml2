@@ -1,12 +1,10 @@
 use ndarray::ShapeError;
-#[cfg(feature = "serde")]
-use serde_crate::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize), serde(crate = "serde_crate"))]
-#[derive(Error, Debug, Clone)]
+#[derive(Error, Debug, Clone, Serialize, Deserialize)]
 pub enum Error {
 	#[error("invalid parameter {0}")]
 	Parameters(String),
@@ -16,7 +14,7 @@ pub enum Error {
 	NotConverged(String),
 	// ShapeError doesn't implement serde traits, and deriving them remotely on a complex error
 	// type isn't really feasible, so we skip this variant.
-	#[cfg_attr(feature = "serde", serde(skip))]
+	#[serde(skip)]
 	#[error("invalid ndarray shape {0}")]
 	NdShape(#[from] ShapeError),
 	#[error("not enough samples")]
