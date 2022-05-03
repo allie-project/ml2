@@ -11,7 +11,7 @@ use ndarray::{
 	Array, Array1, ArrayBase, ArrayView, ArrayView1, ArrayView2, ArrayViewMut, ArrayViewMut1, ArrayViewMut2, CowArray, Ix1, Ix2, Ix3, NdFloat, OwnedRepr,
 	RemoveAxis, ScalarOperand
 };
-#[cfg(feature = "ndarray-linalg")]
+#[cfg(feature = "linalg-blas")]
 use ndarray_linalg::{Lapack, Scalar};
 use num_traits::{AsPrimitive, FromPrimitive, NumCast, Signed};
 use rand::distributions::uniform::SampleUniform;
@@ -46,9 +46,9 @@ pub trait Float:
 	+ ScalarOperand
 	+ approx::AbsDiffEq
 {
-	#[cfg(feature = "ndarray-linalg")]
+	#[cfg(feature = "linalg-blas")]
 	type Lapack: Float + Scalar + Lapack;
-	#[cfg(not(feature = "ndarray-linalg"))]
+	#[cfg(not(feature = "linalg-blas"))]
 	type Lapack: Float;
 
 	fn cast<T: NumCast>(x: T) -> Self {

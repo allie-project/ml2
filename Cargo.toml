@@ -22,69 +22,78 @@ crate-type = [ "lib", "dylib" ]
 name = "glide"
 
 [features]
-default = [ "half", "onnx-fetch-models", "copy-dylibs", "pure" ]
-
-netlib-static = [ "blas", "blas-src/netlib", "netlib-src/static" ]
-netlib-system = [ "blas", "blas-src/netlib", "netlib-src/system" ]
-
-openblas-static = [ "blas", "blas-src/openblas", "openblas-src/static" ]
-openblas-system = [ "blas", "blas-src/openblas", "openblas-src/system" ]
-
-intel-mkl-static = [ "blas", "blas-src/intel-mkl", "intel-mkl-src" ]
-intel-mkl-system = [ "blas", "blas-src/intel-mkl", "intel-mkl-src/use-shared" ]
-
-blis-static = [ "blas", "blas-src/blis", "blis-src/static" ]
-blis-system = [ "blas", "blas-src/blis", "blis-src/system" ]
-
-accelerate = [ "blas", "blas-src/accelerate", "accelerate-src" ]
-
-blas = [ "ndarray/blas", "blas-src", "ndarray-linalg", "linalg" ]
-pure = [ "ndarray-linalg-rs", "linalg" ]
-
-linalg = [ "argmin" ]
-
+default = [ "all-modules", "half", "onnx-fetch-models", "onnx-copy-dylibs", "linalg-pure" ]
 use-half-intrinsics = [ "half/use-intrinsics" ]
-onnx-fetch-models = [ "ureq" ]
-generate-bindings = [ "bindgen" ]
 # used to prevent issues with docs.rs
-disable-sys-build-script = []
-copy-dylibs = []
+disable-build-script = []
+
+# modules
+onnx = [ "tracing", "lazy_static" ]
+logistic = []
+all-modules = [ "onnx", "logistic" ]
+
+blas-netlib-static = [ "linalg-blas", "blas-src/netlib", "netlib-src/static" ]
+blas-netlib = [ "linalg-blas", "blas-src/netlib", "netlib-src/system" ]
+
+blas-openblas-static = [ "linalg-blas", "blas-src/openblas", "openblas-src/static" ]
+blas-openblas = [ "linalg-blas", "blas-src/openblas", "openblas-src/system" ]
+
+blas-intel-mkl-static = [ "linalg-blas", "blas-src/intel-mkl", "intel-mkl-src" ]
+blas-intel-mkl = [ "linalg-blas", "blas-src/intel-mkl", "intel-mkl-src/use-shared" ]
+
+blas-blis-static = [ "linalg-blas", "blas-src/blis", "blis-src/static" ]
+blas-blis = [ "linalg-blas", "blas-src/blis", "blis-src/system" ]
+
+blas-accelerate = [ "linalg-blas", "blas-src/accelerate", "accelerate-src" ]
+
+linalg-blas = [ "ndarray/blas", "blas-src", "ndarray-linalg", "_linalg" ]
+linalg-pure = [ "ndarray-linalg-rs", "_linalg" ]
+
+_linalg = [ "argmin" ]
+
+onnx-fetch-models = [ "ureq" ]
+onnx-generate-bindings = [ "bindgen" ]
+onnx-copy-dylibs = []
 
 # ONNX compile flags
-prefer-compile = []
-minimal-build = []
-enable-training = []
-ms-experimental = []
-use-mimalloc = []
-crt-static = []
-compile-static = [ "crt-static" ]
+onnx-prefer-compile-strategy = []
+onnx-prefer-system-strategy = []
+onnx-prefer-dynamic-libs = []
+onnx-minimal-build = []
+onnx-training = []
+onnx-experimental = []
+onnx-mimalloc = []
+onnx-compile-static = []
 
-cuda = []
-dnnl = []
-coreml = []
-openvino = []
-openmp = []
-vitis-ai = []
-tvm = []
-tensorrt = []
-migraphx = []
-directml = []
-winml = []
-acl = []
-armnn = []
-rocm = []
+onnxep-cuda = []
+onnxep-dnnl = []
+onnxep-coreml = []
+onnxep-openvino = []
+onnxep-openmp = []
+onnxep-vitis-ai = []
+onnxep-tvm = []
+onnxep-tensorrt = []
+onnxep-migraphx = []
+onnxep-directml = []
+onnxep-winml = []
+onnxep-acl = []
+onnxep-armnn = []
+onnxep-rocm = []
 
 [package.metadata.docs.rs]
-features = [ "disable-sys-build-script", "onnx-fetch-models", "half" ]
+features = [ "disable-build-script", "onnx-fetch-models", "half", "linalg-pure" ]
 
 [dependencies]
 # core
+thiserror = "1.0"
+anyhow = "1.0"
 ndarray = { version = "0.15", features = [ "approx-0_5", "rayon", "serde" ] }
 ndarray-stats = "0.5"
 num-complex = "0.4"
 num-traits = "0.2"
 rayon = "1.5"
 approx = { version = "0.5", features = [ "num-complex" ] }
+rand = { version = "0.8", features = [ "small_rng" ] }
 serde = { version = "1.0", default-features = false, features = [ "std", "derive" ] }
 ndrustfft = "0.3"
 argmin = { version = "0.5", features = [ "ndarray", "ndarray-rand" ], optional = true }
@@ -100,13 +109,10 @@ accelerate-src = { version = "0.3", optional = true }
 intel-mkl-src = { version = "0.5", optional = true }
 
 # onnx
-rand = { version = "0.8", features = [ "small_rng" ] }
-thiserror = "1.0"
-anyhow = { version = "1.0" }
 ureq = { version = "2.1", optional = true }
-lazy_static = "1.4"
-tracing = "0.1"
-half = { optional = true, version = "1.8" }
+lazy_static = { version = "1.4", optional = true }
+tracing = { version = "0.1", optional = true }
+half = { version = "1.8", optional = true }
 
 [dev-dependencies]
 ureq = "2.1"

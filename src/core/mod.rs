@@ -12,9 +12,9 @@ pub mod traits;
 pub use composing::*;
 pub use dataset::{Dataset, DatasetBase, DatasetPr, DatasetView, Float, Label};
 pub use error::Error;
-#[cfg(feature = "blas")]
+#[cfg(feature = "linalg-blas")]
 pub use ndarray_linalg as linalg;
-#[cfg(feature = "pure")]
+#[cfg(feature = "linalg-pure")]
 pub use ndarray_linalg_rs as linalg;
 pub use param_guard::ParamGuard;
 

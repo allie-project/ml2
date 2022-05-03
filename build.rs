@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::{
 	borrow::Cow,
 	env, fs,
@@ -148,7 +150,7 @@ impl OnnxPrebuiltArchive for Triplet {
 }
 
 fn prebuilt_onnx_url() -> (PathBuf, String) {
-	let accelerator = if cfg!(feature = "cuda") { Accelerator::Gpu } else { Accelerator::None };
+	let accelerator = if cfg!(feature = "onnxep-cuda") { Accelerator::Gpu } else { Accelerator::None };
 
 	let triplet = Triplet {
 		os: env::var("CARGO_CFG_TARGET_OS").expect("unable to get target OS").parse().unwrap(),
@@ -278,7 +280,7 @@ fn prepare_libort_dir() -> (PathBuf, bool) {
 	match strategy
 		.as_ref()
 		.map(String::as_str)
-		.unwrap_or_else(|_| if cfg!(feature = "prefer-compile") { "compile" } else { "download" })
+		.unwrap_or_else(|_| if cfg!(feature = "onnx-prefer-compile-strategy") { "compile" } else { "download" })
 	{
 		"download" => {
 			let (prebuilt_archive, prebuilt_url) = prebuilt_onnx_url();
@@ -299,7 +301,7 @@ fn prepare_libort_dir() -> (PathBuf, bool) {
 			}
 
 			let lib_dir = extract_dir.join(prebuilt_archive.file_stem().unwrap());
-			#[cfg(feature = "copy-dylibs")]
+			#[cfg(feature = "onnx-copy-dylibs")]
 			{
 				copy_libraries(&lib_dir.join("lib"), &out_dir);
 			}
@@ -308,7 +310,7 @@ fn prepare_libort_dir() -> (PathBuf, bool) {
 		}
 		"system" => {
 			let lib_dir = PathBuf::from(env::var(ORT_ENV_SYSTEM_LIB_LOCATION).expect("[glide] system strategy requires ORT_LIB_LOCATION env var to be set"));
-			#[cfg(feature = "copy-dylibs")]
+			#[cfg(feature = "onnx-copy-dylibs")]
 			{
 				copy_libraries(&lib_dir.join("lib"), &PathBuf::from(env::var("OUT_DIR").unwrap()));
 			}
@@ -413,7 +415,7 @@ fn prepare_libort_dir() -> (PathBuf, bool) {
 			let mut build_args = vec!["tools/ci_build/build.py", "--build", "--update", "--parallel", "--skip_tests", "--skip_submodule_sync"];
 			let config = if cfg!(debug_assertions) {
 				"Debug"
-			} else if cfg!(feature = "minimal-build") {
+			} else if cfg!(feature = "onnx-minimal-build") {
 				"MinSizeRel"
 			} else {
 				"Release"
@@ -421,7 +423,7 @@ fn prepare_libort_dir() -> (PathBuf, bool) {
 			build_args.push("--config");
 			build_args.push(config);
 
-			if cfg!(feature = "minimal-build") {
+			if cfg!(feature = "onnx-minimal-build") {
 				build_args.push("--disable_exceptions");
 			}
 
@@ -431,11 +433,9 @@ fn prepare_libort_dir() -> (PathBuf, bool) {
 				build_args.push("--disable_memleak_checker");
 			}
 
-			if !cfg!(feature = "compile-static") {
+			if !cfg!(feature = "onnx-compile-static") {
 				build_args.push("--build_shared_lib");
-			}
-
-			if cfg!(feature = "crt-static") {
+			} else {
 				build_args.push("--enable_msvc_static_runtime");
 			}
 
@@ -508,13 +508,13 @@ fn prepare_libort_dir() -> (PathBuf, bool) {
 	}
 }
 
-#[cfg(not(feature = "generate-bindings"))]
+#[cfg(not(feature = "onnx-generate-bindings"))]
 fn generate_bindings(_include_dir: &Path) {
 	println!("[glide] bindings not generated automatically; using committed bindings instead.");
 	println!("[glide] enable the `generate-bindings` feature to generate fresh bindings.");
 }
 
-#[cfg(feature = "generate-bindings")]
+#[cfg(feature = "onnx-generate-bindings")]
 fn generate_bindings(include_dir: &Path) {
 	let clang_args = &[
 		format!("-I{}", include_dir.display()),
@@ -550,23 +550,26 @@ fn generate_bindings(include_dir: &Path) {
 	bindings.write_to_file(&generated_file).expect("Couldn't write bindings!");
 }
 
-#[cfg(feature = "disable-sys-build-script")]
+#[cfg(feature = "disable-build-script")]
 fn main() {}
 
-#[cfg(not(feature = "disable-sys-build-script"))]
+#[cfg(not(feature = "disable-build-script"))]
 fn main() {
-	let (install_dir, needs_link) = prepare_libort_dir();
+	#[cfg(feature = "onnx")]
+	{
+		let (install_dir, needs_link) = prepare_libort_dir();
 
-	let include_dir = install_dir.join("include");
-	let lib_dir = install_dir.join("lib");
+		let include_dir = install_dir.join("include");
+		let lib_dir = install_dir.join("lib");
 
-	if needs_link {
-		println!("cargo:rustc-link-lib=onnxruntime");
-		println!("cargo:rustc-link-search=native={}", lib_dir.display());
+		if needs_link {
+			println!("cargo:rustc-link-lib=onnxruntime");
+			println!("cargo:rustc-link-search=native={}", lib_dir.display());
+		}
+
+		println!("cargo:rerun-if-env-changed={}", ORT_ENV_STRATEGY);
+		println!("cargo:rerun-if-env-changed={}", ORT_ENV_SYSTEM_LIB_LOCATION);
+
+		generate_bindings(&include_dir);
 	}
-
-	println!("cargo:rerun-if-env-changed={}", ORT_ENV_STRATEGY);
-	println!("cargo:rerun-if-env-changed={}", ORT_ENV_SYSTEM_LIB_LOCATION);
-
-	generate_bindings(&include_dir);
 }

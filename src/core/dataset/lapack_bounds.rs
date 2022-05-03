@@ -102,7 +102,7 @@ impl<'a, F: Float> WithoutLapackData<F> for ViewRepr<&'a F::Lapack> {
 #[cfg(test)]
 mod tests {
 	use ndarray::Array2;
-	#[cfg(feature = "ndarray-linalg")]
+	#[cfg(feature = "linalg-blas")]
 	use ndarray_linalg::eig::*;
 
 	use super::{WithLapack, WithoutLapack};
@@ -119,7 +119,7 @@ mod tests {
 		assert_eq!(b, a);
 	}
 
-	#[cfg(feature = "ndarray-linalg")]
+	#[cfg(feature = "linalg-blas")]
 	#[test]
 	fn lapack_exists() {
 		let a: Array2<f32> = Array2::zeros((4, 4));
