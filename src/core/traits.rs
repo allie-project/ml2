@@ -46,7 +46,7 @@ pub trait FitWith<'a, R: Records, T, E: std::error::Error + From<crate::core::er
 /// # Provided implementation
 ///
 /// ```rust, ignore
-/// use glide::core::traits::Predict;
+/// use ml2::core::traits::Predict;
 ///
 /// // predict targets with reference to dataset (&Dataset -> Array)
 /// let pred_targets = model.predict(&dataset);

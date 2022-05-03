@@ -43,7 +43,7 @@ struct EnvironmentSingleton {
 ///
 /// ```no_run
 /// # use std::error::Error;
-/// # use glide::onnx::{environment::Environment, LoggingLevel};
+/// # use ml2::onnx::{environment::Environment, LoggingLevel};
 /// # fn main() -> Result<(), Box<dyn Error>> {
 /// let environment = Environment::builder().with_name("test").with_log_level(LoggingLevel::Verbose).build()?;
 /// # Ok(())

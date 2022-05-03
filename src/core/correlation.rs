@@ -122,7 +122,7 @@ impl<F: Float> PearsonCorrelation<F> {
 	/// # Example
 	///
 	/// ```
-	/// let corr = libglide_datasets::diabetes().pearson_correlation_with_p_value(100);
+	/// let corr = ml2_datasets::diabetes().pearson_correlation_with_p_value(100);
 	///
 	/// println!("{}", corr);
 	/// ```
@@ -190,7 +190,7 @@ impl<F: Float, D: Data<Elem = F>, T> DatasetBase<ArrayBase<D, Ix2>, T> {
 	/// # Example
 	///
 	/// ```
-	/// let corr = libglide_datasets::diabetes().pearson_correlation();
+	/// let corr = ml2_datasets::diabetes().pearson_correlation();
 	///
 	/// println!("{}", corr);
 	/// ```
@@ -216,7 +216,7 @@ impl<F: Float, D: Data<Elem = F>, T> DatasetBase<ArrayBase<D, Ix2>, T> {
 	/// # Example
 	///
 	/// ```
-	/// let corr = libglide_datasets::diabetes().pearson_correlation_with_p_value(100);
+	/// let corr = ml2_datasets::diabetes().pearson_correlation_with_p_value(100);
 	///
 	/// println!("{}", corr);
 	/// ```

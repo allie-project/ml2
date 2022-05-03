@@ -60,7 +60,7 @@ impl<A> ConfusionMatrix<A> {
 	/// # Examples
 	///
 	/// ```rust
-	/// use glide::core::prelude::*;
+	/// use ml2::core::prelude::*;
 	/// use ndarray::array;
 	///
 	/// // create dummy classes 0 and 1
@@ -100,7 +100,7 @@ impl<A> ConfusionMatrix<A> {
 	/// # Example
 	///
 	/// ```rust
-	/// use glide::core::prelude::*;
+	/// use ml2::core::prelude::*;
 	/// use ndarray::array;
 	///
 	/// // create dummy classes 0 and 1

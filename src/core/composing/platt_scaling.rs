@@ -130,7 +130,7 @@ pub enum PlattError {
 	#[error("sigma should be positive, is {0}")]
 	SigmaNegative(f32),
 	#[error(transparent)]
-	GlideError(#[from] crate::core::error::Error)
+	CoreError(#[from] crate::core::error::Error)
 }
 
 impl<F: Float, O> Platt<F, O> {

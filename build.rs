@@ -275,7 +275,7 @@ fn copy_libraries(lib_dir: &Path, out_dir: &Path) {
 
 fn prepare_libort_dir() -> (PathBuf, bool) {
 	let strategy = env::var(ORT_ENV_STRATEGY);
-	println!("[glide] strategy: {:?}", strategy.as_ref().map(String::as_str).unwrap_or_else(|_| "unknown"));
+	println!("[ml2] strategy: {:?}", strategy.as_ref().map(String::as_str).unwrap_or_else(|_| "unknown"));
 
 	match strategy
 		.as_ref()
@@ -309,7 +309,7 @@ fn prepare_libort_dir() -> (PathBuf, bool) {
 			(lib_dir, true)
 		}
 		"system" => {
-			let lib_dir = PathBuf::from(env::var(ORT_ENV_SYSTEM_LIB_LOCATION).expect("[glide] system strategy requires ORT_LIB_LOCATION env var to be set"));
+			let lib_dir = PathBuf::from(env::var(ORT_ENV_SYSTEM_LIB_LOCATION).expect("[ml2] system strategy requires ORT_LIB_LOCATION env var to be set"));
 			#[cfg(feature = "onnx-copy-dylibs")]
 			{
 				copy_libraries(&lib_dir.join("lib"), &PathBuf::from(env::var("OUT_DIR").unwrap()));
@@ -322,7 +322,7 @@ fn prepare_libort_dir() -> (PathBuf, bool) {
 
 			let target = env::var("TARGET").unwrap();
 			if target.contains("macos") && !cfg!(target_os = "darwin") && env::var(ORT_ENV_CMAKE_PROGRAM).is_err() {
-				panic!("[glide] cross-compiling for macOS with the `compile` strategy requires `{}` to be set", ORT_ENV_CMAKE_PROGRAM);
+				panic!("[ml2] cross-compiling for macOS with the `compile` strategy requires `{}` to be set", ORT_ENV_CMAKE_PROGRAM);
 			}
 
 			let cmake = env::var(ORT_ENV_CMAKE_PROGRAM).unwrap_or_else(|_| "cmake".to_string());
@@ -338,11 +338,11 @@ fn prepare_libort_dir() -> (PathBuf, bool) {
 			let required_cmds: &[&str] = &[&cmake, "python", "git"];
 			for cmd in required_cmds {
 				if Command::new(cmd).output().is_err() {
-					panic!("[glide] compile strategy requires `{}` to be installed", cmd);
+					panic!("[ml2] compile strategy requires `{}` to be installed", cmd);
 				}
 			}
 
-			println!("[glide] assuming C/C++ compilers are available");
+			println!("[ml2] assuming C/C++ compilers are available");
 
 			Command::new("git")
 				.args(&[
@@ -402,7 +402,7 @@ fn prepare_libort_dir() -> (PathBuf, bool) {
 			);
 
 			if cfg!(target_os = "linux") && target.contains("windows") && target.contains("aarch64") {
-				println!("[glide] detected cross compilation to Windows arm64, default toolchain will make bad assumptions.");
+				println!("[ml2] detected cross compilation to Windows arm64, default toolchain will make bad assumptions.");
 			}
 
 			let mut command = Command::new(python);
@@ -466,7 +466,7 @@ fn prepare_libort_dir() -> (PathBuf, bool) {
 							build_args.push("--cmake_generator=Visual Studio 17 2022");
 						}
 					}
-					Some(VsFindResult { vs_exe_path: None, .. }) | None => panic!("[glide] unable to find Visual Studio installation")
+					Some(VsFindResult { vs_exe_path: None, .. }) | None => panic!("[ml2] unable to find Visual Studio installation")
 				};
 			}
 
@@ -488,7 +488,7 @@ fn prepare_libort_dir() -> (PathBuf, bool) {
 				if lib_path.exists() {
 					println!("cargo:rustc-link-lib=static=onnxruntime_{}", lib);
 				} else {
-					panic!("[glide] unable to find ONNX Runtime library: {}", lib_path.display());
+					panic!("[ml2] unable to find ONNX Runtime library: {}", lib_path.display());
 				}
 			}
 
@@ -504,14 +504,14 @@ fn prepare_libort_dir() -> (PathBuf, bool) {
 
 			(out_dir, false)
 		}
-		_ => panic!("[glide] unknown strategy: {} (valid options are `download` or `system`)", strategy.unwrap_or_else(|_| "unknown".to_string()))
+		_ => panic!("[ml2] unknown strategy: {} (valid options are `download` or `system`)", strategy.unwrap_or_else(|_| "unknown".to_string()))
 	}
 }
 
 #[cfg(not(feature = "onnx-generate-bindings"))]
 fn generate_bindings(_include_dir: &Path) {
-	println!("[glide] bindings not generated automatically; using committed bindings instead.");
-	println!("[glide] enable the `generate-bindings` feature to generate fresh bindings.");
+	println!("[ml2] bindings not generated automatically; using committed bindings instead.");
+	println!("[ml2] enable the `generate-bindings` feature to generate fresh bindings.");
 }
 
 #[cfg(feature = "onnx-generate-bindings")]

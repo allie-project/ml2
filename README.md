@@ -1,9 +1,8 @@
 <div align=center>
-	<img src=".github/banner.png" width="1000" alt="libglide">
-	<h1>libglide - AI Utilities</h1>
+	<h1>ML2 - AI Utilities</h1>
 </div>
 
-libglide is the primary AI library used by [Allie Project](https://github.com/allie-project/allie). It provides simplified interfaces for a few ONNX Runtime models, a machine learning framework based on [linfa](https://github.com/rust-ml/linfa), and ONNX Runtime bindings based on [onnxruntime-rs](https://github.com/nbigaouette/onnxruntime-rs).
+ML2 is the primary AI library used by [Allie Project](https://github.com/allie-project/allie). It provides simplified interfaces for a few ONNX Runtime models, a machine learning framework based on [linfa](https://github.com/rust-ml/linfa), and ONNX Runtime bindings based on [onnxruntime-rs](https://github.com/nbigaouette/onnxruntime-rs).
 
 **Included model interfaces**:
 - ❌ [GLIDE](https://arxiv.org/abs/2112.10741)
@@ -13,10 +12,7 @@ libglide is the primary AI library used by [Allie Project](https://github.com/al
 - ❌ [HiFi-GAN](https://arxiv.org/abs/2010.05646)
 - ❌ [StyleGAN](https://arxiv.org/abs/1812.04948)
 
-> **NOTE**: libglide is still a work in progress; we are currently working on porting the codebase from C++ to Rust.
-
-## Usage
-`libglide` is not published on Crates.io at the moment. You are welcome to use the code behind the model implementations provided in this repo in your projects; all code is under the Apache 2.0 license. You may use libglide as a Git crate, but note that the API is not guaranteed to be stable and may have breaking changes at any time.
+> **NOTE**: ML2 is still a work in progress; we are currently working on porting the codebase from C++ to Rust.
 
 ## Cargo features
 - **Linear Algebra**
@@ -27,16 +23,16 @@ libglide is the primary AI library used by [Allie Project](https://github.com/al
         - `blas-intel-mkl`, `blas-intel-mkl-static` (**All (x86 only)**): Links to the Intel MKL library. Only supported for x86 and x64 targets.
         - `blas-blis`, `blas-blis-static` (**Unix**, recommended): Links to the BLIS library. Recommended for ease of use and speed on Unix targets.
         - `blas-accelerate` (**macOS**): Links to the Accelerate framework for BLAS.
-- **Core Modules**: Core modules implementing machine learning tools similar to parts of Python's scikit-learn.
+- **Core Modules**: Core modules implementing machine learning tools similar to parts of Python's `scikit-learn`.
     - `all-modules`: Enable all modules. **Enabled by default, requires a linear algebra implementation.**
     - `logistic`: Provides pure Rust implementations of two-class (binomial) and multinomial logistic regression models. **Requires a linear algebra implementation.**
 - `onnx`: Enables building ONNX Runtime Bindings. Must be enabled to use ONNX models (GLIDE, T5, GPT-2, Glow-TTS, HiFi-GAN, & StyleGAN).
-    - `onnx-fetch-models`: Enables fetching models from the ONNX Model Zoo. Not recommended for production.
+    - `onnx-fetch-models`: Enables fetching models from the ONNX Model Zoo; not recommended for production.
     - `onnx-generate-bindings`: Update/generate ONNX Runtime bindings with `bindgen`. Requires [libclang](https://clang.llvm.org/doxygen/group__CINDEX.html).
     - `onnx-copy-dylibs`: Copy dynamic libraries to the Cargo `target` folder. Heavily recommended on Windows, where the operating system may have an older version of ONNX Runtime bundled.
-    - `onnx-prefer-system-strategy`: Uses the `system` compile strategy by default. This will require users to provide their own ONNX Runtime dylibs.
-        - `onnx-prefer-dynamic-libs`: If the path pointed to by `ORT_LIB_LOCATION` contains static libraries, `libglide` will link to them rather than dynamic libraries. This feature prefers linking to dynamic libraries.
-    - `onnx-prefer-compile-strategy`: Uses the `compile` strategy by default. This will take a *very* long time and is currently unfinished, but allows for static linking, avoiding DLL hell.
+    - `onnx-prefer-system-strategy`: Uses the `system` compile strategy by default; requires users to provide ONNX Runtime libraries.
+        - `onnx-prefer-dynamic-libs`: If the path pointed to by `ORT_LIB_LOCATION` contains static libraries, `ML2` will link to them rather than dynamic libraries. This feature prefers linking to dynamic libraries.
+    - `onnx-prefer-compile-strategy`: Uses the `compile` strategy by default; will take a *very* long time and is currently unfinished, but allows for static linking, avoiding DLL hell.
         - `onnx-compile-static`: Compiles ONNX Runtime as a static library.
         - `onnx-mimalloc`: Uses the (usually) faster mimalloc memory allocation library instead of the platform default.
         - `onnx-experimental`: Compiles Microsoft experimental operators.
@@ -44,7 +40,7 @@ libglide is the primary AI library used by [Allie Project](https://github.com/al
         - `onnx-minimal-build`: Builds ONNX Runtime without ONNX model loading. Drastically reduces size. Recommended for release builds.
         - **Execution providers**
             - `onnxep-cuda`: Enables the CUDA execution provider for Maxwell (7xx) NVIDIA GPUs and above. Requires CUDA v11.4+.
-            - `onnxep-tensorrt`: Enables the TensorRT execution provider for GeForce 9xx series NVIDIA GPUs and above. Requires CUDA v11.4+ and TensorRT v8.4+.
+            - `onnxep-tensorrt`: Enables the TensorRT execution provider for GeForce 9xx series NVIDIA GPUs and above; requires CUDA v11.4+ and TensorRT v8.4+.
             - `onnxep-dnnl`: Enables the oneDNN execution provider for x86/x64 targets.
             - `onnxep-coreml`: Enables the CoreML execution provider for macOS/iOS targets.
             - `onnxep-armnn`: Enables the ArmNN execution provider for ARM v8 targets.
@@ -63,7 +59,7 @@ libglide is the primary AI library used by [Allie Project](https://github.com/al
 Because building ONNX Runtime takes so long (and static linking is not recommended by Microsoft), it may be easier to compile ONNX Runtime as a shared library or use prebuilt DLLs. However, this can cause some issues with library paths and load orders.
 
 ### Windows
-Some versions of Windows come bundled with `onnxruntime.dll` in the System32 folder. On build 22598.1, `onnxruntime.dll` is on version 1.10.0. libglide requires 1.11.0, so everything failed because system DLLs take precedence. Luckily, DLLs in the same folder as the application have higher priority; libglide can automatically copy the DLLs to the Cargo target folder when the `onnx-copy-dylibs` feature is enabled.
+Some versions of Windows come bundled with `onnxruntime.dll` in the System32 folder. On build 22598.1, `onnxruntime.dll` is on version 1.10.0. ML2 requires 1.11.0, so everything failed because system DLLs take precedence. Luckily, DLLs in the same folder as the application have higher priority; ML2 can automatically copy the DLLs to the Cargo target folder when the `onnx-copy-dylibs` feature is enabled.
 
 ### Linux
 You'll either have to copy `libonnxruntime.so` to a known lib location (e.g. `/usr/lib`) or use rpath.

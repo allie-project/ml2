@@ -45,7 +45,7 @@ use crate::{
 ///
 /// ```no_run
 /// # use std::error::Error;
-/// # use glide::onnx::{environment::Environment, LoggingLevel, GraphOptimizationLevel};
+/// # use ml2::onnx::{environment::Environment, LoggingLevel, GraphOptimizationLevel};
 /// # fn main() -> Result<(), Box<dyn Error>> {
 /// let environment = Environment::builder().with_name("test").with_log_level(LoggingLevel::Verbose).build()?;
 /// let mut session = environment

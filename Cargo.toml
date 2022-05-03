@@ -1,6 +1,6 @@
 [package]
-name = "libglide"
-version = "0.1.0"
+name = "ml2"
+version = "1.0.0-dev.20220503"
 authors = [
 	"pyke.io",
 	"Nicolas Bigaouette <nbigaouette@gmail.com>",
@@ -11,7 +11,7 @@ authors = [
 description = "Neural network utilities"
 edition = "2021"
 license = "MIT/Apache-2.0"
-repository = "https://github.com/allie-project/libglide"
+repository = "https://github.com/allie-project/ml2"
 readme = "README.md"
 keywords = [ "machine-learning", "ai", "ml" ]
 categories = [ "algorithms", "mathematics", "science" ]
@@ -19,7 +19,6 @@ exclude = [ ".github/", ".vscode/", "test/" ]
 
 [lib]
 crate-type = [ "lib", "dylib" ]
-name = "glide"
 
 [features]
 default = [ "all-modules", "half", "onnx-fetch-models", "onnx-copy-dylibs", "linalg-pure" ]
@@ -121,7 +120,7 @@ test-log = { version = "0.2", default-features = false, features = [ "trace" ] }
 tracing-subscriber = { version = "0.3", default-features = false, features = [ "env-filter", "fmt" ] }
 ndarray-npy = { version = "0.8", features = [ "num-complex-0_4", "compressed_npz" ] }
 ndarray-rand = "0.14"
-libglide-datasets = { path = "datasets", features = [ "winequality", "iris", "diabetes" ] }
+ml2-datasets = { path = "datasets", features = [ "winequality", "iris", "diabetes" ] }
 
 [build-dependencies]
 bindgen = { version = "0.59", optional = true }

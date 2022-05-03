@@ -32,7 +32,7 @@
 //!
 //! You can then use the dataset in your working code:
 //! ```ignore
-//! let (train, valid) = libglide_datasets::winequality().split_with_ratio(0.8);
+//! let (train, valid) = ml2_datasets::winequality().split_with_ratio(0.8);
 //! ```
 
 #[cfg(feature = "generate")]
@@ -40,7 +40,7 @@ pub mod generate;
 
 use csv::ReaderBuilder;
 use flate2::read::GzDecoder;
-use glide::core::Dataset;
+use ml2::core::Dataset;
 use ndarray::prelude::*;
 use ndarray_csv::Array2Reader;
 
@@ -147,7 +147,7 @@ pub fn linnerud() -> Dataset<f64, f64> {
 #[cfg(test)]
 mod tests {
 	use approx::assert_abs_diff_eq;
-	use glide::core::prelude::*;
+	use ml2::core::prelude::*;
 
 	use super::*;
 

@@ -121,7 +121,7 @@ impl<L, R: Records, T: AsTargets<Elem = L>> DatasetBase<R, T> {
 	/// # Example
 	///
 	/// ```
-	/// let dataset = libglide_datasets::winequality().map_targets(|x| *x > 6);
+	/// let dataset = ml2_datasets::winequality().map_targets(|x| *x > 6);
 	///
 	/// // dataset has now boolean targets
 	/// println!("{:?}", dataset.targets());
@@ -154,7 +154,7 @@ impl<L, R: Records, T: AsTargets<Elem = L>> DatasetBase<R, T> {
 	/// # Example
 	///
 	/// ```
-	/// let dataset = libglide_datasets::winequality();
+	/// let dataset = ml2_datasets::winequality();
 	/// println!("#targets {}", dataset.ntargets());
 	/// ```
 	pub fn ntargets(&self) -> usize {
@@ -179,7 +179,7 @@ where
 	///
 	/// # Example
 	/// ```
-	/// let dataset = libglide_datasets::iris();
+	/// let dataset = ml2_datasets::iris();
 	/// for (x, y) in dataset.sample_iter() {
 	/// 	println!("{} => {}", x, y);
 	/// }
@@ -527,7 +527,7 @@ where
 	/// ### Example
 	///
 	/// ```rust
-	/// use glide::core::dataset::DatasetView;
+	/// use ml2::core::dataset::DatasetView;
 	/// use ndarray::{array, Ix1};
 	///
 	/// let records = array![[1., 1.], [2., 1.], [3., 2.], [4., 1.], [5., 3.], [6., 2.]];
@@ -631,9 +631,9 @@ where
 	///
 	/// ## Example
 	/// ```rust
-	/// use glide::core::dataset::{Dataset, DatasetView, Records};
-	/// use glide::core::traits::Fit;
-	/// use glide::core::Error;
+	/// use ml2::core::dataset::{Dataset, DatasetView, Records};
+	/// use ml2::core::traits::Fit;
+	/// use ml2::core::Error;
 	/// use ndarray::{array, ArrayView1, ArrayView2, Ix1};
 	///
 	/// struct MockFittable {}
@@ -642,10 +642,10 @@ where
 	/// 	mock_var: usize
 	/// }
 	///
-	/// impl<'a> Fit<ArrayView2<'a, f64>, ArrayView1<'a, f64>, glide::core::error::Error> for MockFittable {
+	/// impl<'a> Fit<ArrayView2<'a, f64>, ArrayView1<'a, f64>, ml2::core::error::Error> for MockFittable {
 	/// 	type Object = MockFittableResult;
 	///
-	/// 	fn fit(&self, training_data: &DatasetView<f64, f64, Ix1>) -> Result<Self::Object, glide::core::error::Error> {
+	/// 	fn fit(&self, training_data: &DatasetView<f64, f64, Ix1>) -> Result<Self::Object, ml2::core::error::Error> {
 	/// 		Ok(MockFittableResult { mock_var: training_data.nsamples() })
 	/// 	}
 	/// }
@@ -733,7 +733,7 @@ where
 	/// ### Example
 	///
 	/// ```rust, ignore
-	/// use glide::core::prelude::*;
+	/// use ml2::core::prelude::*;
 	/// use ndarray::arr0;
 	/// # use ndarray::{array, ArrayView1, ArrayView2, Ix1};
 	///
@@ -743,10 +743,10 @@ where
 	/// #    mock_var: usize,
 	/// # }
 	///
-	/// # impl<'a> Fit<ArrayView2<'a,f64>, ArrayView1<'a, f64>, glide::core::error::Error> for MockFittable {
+	/// # impl<'a> Fit<ArrayView2<'a,f64>, ArrayView1<'a, f64>, ml2::core::error::Error> for MockFittable {
 	/// #     type Object = MockFittableResult;
 	///
-	/// #     fn fit(&self, training_data: &DatasetView<f64, f64, Ix1>) -> Result<Self::Object, glide::core::error::Error> {
+	/// #     fn fit(&self, training_data: &DatasetView<f64, f64, Ix1>) -> Result<Self::Object, ml2::core::error::Error> {
 	/// #         Ok(MockFittableResult {
 	/// #             mock_var: training_data.nsamples(),
 	/// #         })
@@ -757,7 +757,7 @@ where
 	/// # let model2 = MockFittable {};
 	///
 	/// // mutability needed for fast cross validation
-	/// let mut dataset = libglide_datasets::diabetes();
+	/// let mut dataset = ml2_datasets::diabetes();
 	///
 	/// let models = vec![model1, model2];
 	///
