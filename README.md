@@ -31,7 +31,7 @@ ML2 is the primary AI library used by [Allie Project](https://github.com/allie-p
     - `onnx-generate-bindings`: Update/generate ONNX Runtime bindings with `bindgen`. Requires [libclang](https://clang.llvm.org/doxygen/group__CINDEX.html).
     - `onnx-copy-dylibs`: Copy dynamic libraries to the Cargo `target` folder. Heavily recommended on Windows, where the operating system may have an older version of ONNX Runtime bundled.
     - `onnx-prefer-system-strategy`: Uses the `system` compile strategy by default; requires users to provide ONNX Runtime libraries.
-        - `onnx-prefer-dynamic-libs`: If the path pointed to by `ORT_LIB_LOCATION` contains static libraries, `ML2` will link to them rather than dynamic libraries. This feature prefers linking to dynamic libraries.
+        - `onnx-prefer-dynamic-libs`: By default, if the path pointed to by `ORT_LIB_LOCATION` contains static libraries, `ML2` will link to them rather than dynamic libraries. This feature prefers linking to dynamic libraries instead.
     - `onnx-prefer-compile-strategy`: Uses the `compile` strategy by default; will take a *very* long time and is currently unfinished, but allows for static linking, avoiding DLL hell.
         - `onnx-compile-static`: Compiles ONNX Runtime as a static library.
         - `onnx-mimalloc`: Uses the (usually) faster mimalloc memory allocation library instead of the platform default.
