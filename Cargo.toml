@@ -25,6 +25,8 @@ crate-type = [ "lib", "dylib" ]
 
 [profile.release]
 opt-level = 3
+lto = true
+panic = "abort"
 
 [package.metadata.docs.rs]
 features = [ "all-modules", "half", "onnx-fetch-models", "onnx-copy-dylibs", "linalg-pure" ]
@@ -100,7 +102,6 @@ num-complex = "0.4"
 num-traits = "0.2"
 rayon = "1.5"
 thiserror = "1.0"
-anyhow = "1.0"
 rand = { version = "0.8", features = [ "small_rng" ] }
 
 # nn
@@ -143,6 +144,7 @@ ndarray-npy = { version = "0.8", features = [ "num-complex-0_4", "compressed_npz
 ndarray-rand = "0.14"
 ml2-datasets = { path = "datasets", features = [ "winequality", "iris", "diabetes" ] }
 rand_isaac = "0.3"
+criterion = { version = "0.3", features = [ "html_reports" ] }
 
 [build-dependencies]
 bindgen = { version = "0.59", optional = true }
@@ -155,3 +157,8 @@ tar = "0.4"
 
 [target.'cfg(target_os = "windows")'.build-dependencies]
 vswhom = "0.1"
+
+[[bench]]
+name = "nn"
+required-features = [ "nn" ]
+harness = false
