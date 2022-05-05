@@ -66,6 +66,7 @@ pub trait NearestNeighbour: std::fmt::Debug {
 	///
 	/// Returns an error if the points have dimensionality of 0 or if the leaf size is 0. If any
 	/// value in the batch is NaN or infinite, the behaviour is unspecified.
+	#[allow(clippy::wrong_self_convention)]
 	fn from_batch_with_leaf_size<'a, F: Float, DT: Data<Elem = F>, D: 'a + Distance<F>>(
 		&self,
 		batch: &'a ArrayBase<DT, Ix2>,
@@ -75,6 +76,7 @@ pub trait NearestNeighbour: std::fmt::Debug {
 
 	/// Builds a spatial index using a default leaf size. See `from_batch_with_leaf_size` for more
 	/// information.
+	#[allow(clippy::wrong_self_convention)]
 	fn from_batch<'a, F: Float, DT: Data<Elem = F>, D: 'a + Distance<F>>(
 		&self,
 		batch: &'a ArrayBase<DT, Ix2>,
