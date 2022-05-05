@@ -126,6 +126,7 @@ tracing-subscriber = { version = "0.3", default-features = false, features = [ "
 ndarray-npy = { version = "0.8", features = [ "num-complex-0_4", "compressed_npz" ] }
 ndarray-rand = "0.14"
 ml2-datasets = { path = "datasets", features = [ "winequality", "iris", "diabetes" ] }
+rand_isaac = "0.3"
 
 [build-dependencies]
 bindgen = { version = "0.59", optional = true }

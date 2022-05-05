@@ -8,5 +8,7 @@ pub mod core;
 #[cfg(all(feature = "_linalg", feature = "logistic"))]
 pub mod logistic;
 pub mod ndarray;
+#[cfg(feature = "nn")]
+pub mod nn;
 #[cfg(feature = "onnx")]
 pub mod onnx;
