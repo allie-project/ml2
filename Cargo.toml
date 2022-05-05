@@ -8,7 +8,7 @@ authors = [
     "Lorenz Schmidt <bytesnake@mailbox.org>",
     "Paul Körbitz <koerbitz@google.com>"
 ]
-description = "Neural network utilities"
+description = "AI Utilities"
 edition = "2021"
 license = "MIT/Apache-2.0"
 repository = "https://github.com/allie-project/ml2"
@@ -31,7 +31,8 @@ onnx = [ "tracing", "lazy_static" ]
 bayes = [ "ndarray-stats" ]
 logistic = [ "ndarray-stats" ]
 nn = [ "ndarray-stats", "noisy_float", "order-stat", "kdtree" ]
-all-modules = [ "onnx", "bayes", "logistic", "nn" ]
+kernel = [ "nn", "sprs" ]
+all-modules = [ "onnx", "bayes", "logistic", "nn", "kernel" ]
 
 blas-netlib-static = [ "linalg-blas", "blas-src/netlib", "netlib-src/static" ]
 blas-netlib = [ "linalg-blas", "blas-src/netlib", "netlib-src/system" ]
@@ -82,7 +83,7 @@ onnxep-armnn = []
 onnxep-rocm = []
 
 [package.metadata.docs.rs]
-features = [ "disable-build-script", "onnx-fetch-models", "half", "linalg-pure" ]
+features = [ "all-modules", "half", "onnx-fetch-models", "onnx-copy-dylibs", "linalg-pure" ]
 
 [dependencies]
 # core
@@ -103,6 +104,7 @@ approx = { version = "0.5", features = [ "num-complex" ] }
 rand = { version = "0.8", features = [ "small_rng" ] }
 serde = { version = "1.0", default-features = false, features = [ "std", "derive" ] }
 ndrustfft = "0.3"
+sprs = { version = "0.11", default-features = false, optional = true }
 
 # blas
 blas-src = { version = "0.8", default-features = false, optional = true }
