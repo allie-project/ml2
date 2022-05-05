@@ -54,8 +54,8 @@ blas-openblas = [ "linalg-blas", "blas-src/openblas", "openblas-src/system" ]
 blas-intel-mkl-static = [ "linalg-blas", "blas-src/intel-mkl", "intel-mkl-src" ]
 blas-intel-mkl = [ "linalg-blas", "blas-src/intel-mkl", "intel-mkl-src/use-shared" ]
 
-blas-blis-static = [ "linalg-blas", "blas-src/blis", "blis-src/static" ]
-blas-blis = [ "linalg-blas", "blas-src/blis", "blis-src/system" ]
+blas-blis-static = [ "linalg-blas", "blis-src/static" ]
+blas-blis = [ "linalg-blas", "blis-src/system" ]
 
 blas-accelerate = [ "linalg-blas", "blas-src/accelerate", "accelerate-src" ]
 
