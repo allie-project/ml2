@@ -14,7 +14,7 @@ pub use dataset::{Dataset, DatasetBase, DatasetPr, DatasetView, Float, Label};
 pub use error::Error;
 #[cfg(feature = "linalg-blas")]
 pub use ndarray_linalg as linalg;
-#[cfg(feature = "linalg-pure")]
+#[cfg(all(feature = "linalg-pure", not(feature = "linalg-blas")))]
 pub use ndarray_linalg_rs as linalg;
 pub use param_guard::ParamGuard;
 
