@@ -92,7 +92,7 @@ where
 	}
 }
 
-impl<'a, F, L> MultinomialNbValidParams<F, L>
+impl<F, L> MultinomialNbValidParams<F, L>
 where
 	F: Float
 {

@@ -106,7 +106,7 @@ where
 	}
 }
 
-impl<'a, F, L> GaussianNbValidParams<F, L>
+impl<F, L> GaussianNbValidParams<F, L>
 where
 	F: Float
 {

@@ -342,7 +342,7 @@ impl<'a, F: Float, N: NearestNeighbour> Transformer<&ArrayView2<'a, F>, Kernel<F
 	}
 }
 
-impl<'a, F: Float, T: AsTargets, N: NearestNeighbour> Transformer<DatasetBase<Array2<F>, T>, DatasetBase<Kernel<F>, T>> for KernelParams<F, N> {
+impl<F: Float, T: AsTargets, N: NearestNeighbour> Transformer<DatasetBase<Array2<F>, T>, DatasetBase<Kernel<F>, T>> for KernelParams<F, N> {
 	/// Builds a new Dataset with the kernel as the records and the same targets as the input one.
 	///
 	/// It takes ownership of the original dataset.
