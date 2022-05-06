@@ -169,8 +169,8 @@ where
 /// classifier on provided data.
 ///
 /// ```rust
-/// use ml2::core::prelude::*;
 /// use ml2::bayes::{GaussianNbParams, GaussianNbValidParams, Result};
+/// use ml2::core::prelude::*;
 /// use ndarray::array;
 ///
 /// let x = array![[-2., -1.], [-1., -1.], [-1., -2.], [1., 1.], [1., 2.], [2., 1.]];
