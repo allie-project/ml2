@@ -88,9 +88,9 @@ mod tests {
 			assert_eq!(arr.nrows(), targets.len(), "The number of data points must match the number of output targets.");
 
 			if !self.on_even {
-				*targets = Array1::from_shape_fn(arr.nrows(), |x| if x % 2 == 1 { Pr(1.0) } else { Pr(0.0) });
+				*targets = Array1::from_shape_fn(arr.nrows(), |x| if x % 2 == 1 { Pr::new(1.0) } else { Pr::new(0.0) });
 			} else {
-				*targets = Array1::from_shape_fn(arr.nrows(), |x| if x % 2 == 1 { Pr(0.0) } else { Pr(1.0) });
+				*targets = Array1::from_shape_fn(arr.nrows(), |x| if x % 2 == 1 { Pr::new(0.0) } else { Pr::new(1.0) });
 			}
 		}
 
@@ -105,8 +105,8 @@ mod tests {
 		let model2 = DummyModel { on_even: true };
 
 		let data = Array2::zeros((4, 2));
-		assert_eq!(model1.predict(&data), array![Pr(0.0), Pr(1.0), Pr(0.0), Pr(1.0)]);
-		assert_eq!(model2.predict(&data), array![Pr(1.0), Pr(0.0), Pr(1.0), Pr(0.0)]);
+		assert_eq!(model1.predict(&data), array![0.0, 1.0, 0.0, 1.0].mapv(Pr::new));
+		assert_eq!(model2.predict(&data), array![1.0, 0.0, 1.0, 0.0].mapv(Pr::new));
 	}
 
 	#[test]
