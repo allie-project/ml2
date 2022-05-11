@@ -185,3 +185,4 @@ WixTools/
 
 # ONNX Runtime downloaded models
 **/*.onnx
+!tests/data/onnx/*.onnx
