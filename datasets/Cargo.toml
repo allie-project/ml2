@@ -1,7 +1,7 @@
 [package]
 name = "ml2-datasets"
-version = "1.0.0-dev.20220503"
-authors = ["Lorenz Schmidt <bytesnake@mailbox.org>"]
+version = "1.0.0-dev.20220511"
+authors = ["pyke.io", "Lorenz Schmidt <bytesnake@mailbox.org>"]
 description = "Collection of small datasets for Linfa"
 edition = "2021"
 license = "MIT/Apache-2.0"
