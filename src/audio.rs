@@ -306,14 +306,14 @@ mod tests {
 	#[test]
 	fn test_mel_basis() {
 		let m = mel_basis(22050, 1024, 80, 0.0, 8000.0);
-		let larynx_mel: Array2<f64> = read_npy("test/data/larynx-mel-basis.npy").unwrap();
+		let larynx_mel: Array2<f64> = read_npy("tests/data/audio/larynx-mel-basis.npy").unwrap();
 		assert_relative_eq!(m, larynx_mel);
 	}
 
 	#[test]
 	fn test_dynamic_range_compression() {
-		let sample: Array1<f64> = read_npy("test/data/sample.npy").unwrap();
-		let larynx_compressed: Array1<f64> = read_npy("test/data/larynx-drc-sample.npy").unwrap();
+		let sample: Array1<f64> = read_npy("tests/data/audio/sample.npy").unwrap();
+		let larynx_compressed: Array1<f64> = read_npy("tests/data/audio/larynx-drc-sample.npy").unwrap();
 		let compressed = dynamic_range_compression(&sample, 1.0, 1e-5);
 		assert_relative_eq!(compressed, larynx_compressed);
 
@@ -324,14 +324,14 @@ mod tests {
 	#[test]
 	fn test_mel_frequencies() {
 		let freq = mel_frequencies(128, 0.0, 11025.0);
-		let larynx_mel: Array1<f64> = read_npy("test/data/larynx-mel-frequencies.npy").unwrap();
+		let larynx_mel: Array1<f64> = read_npy("tests/data/audio/larynx-mel-frequencies.npy").unwrap();
 		assert_relative_eq!(freq, larynx_mel);
 	}
 
 	#[test]
 	fn test_fft_frequencies() {
 		let freq = fft_frequencies(22050, 2048);
-		let larynx_fft: Array1<f64> = read_npy("test/data/larynx-fft-frequencies.npy").unwrap();
+		let larynx_fft: Array1<f64> = read_npy("tests/data/audio/larynx-fft-frequencies.npy").unwrap();
 		assert_relative_eq!(freq, larynx_fft);
 	}
 
@@ -349,8 +349,8 @@ mod tests {
 
 	#[test]
 	fn test_rfft() {
-		let sample: Array1<f64> = read_npy("test/data/sample.npy").unwrap();
-		let numpy_fft: Array1<Complex64> = read_npy("test/data/numpy-rfft-sample.npy").unwrap();
+		let sample: Array1<f64> = read_npy("tests/data/audio/sample.npy").unwrap();
+		let numpy_fft: Array1<Complex64> = read_npy("tests/data/audio/numpy-rfft-sample.npy").unwrap();
 		let fft = rfft(&sample);
 		assert_relative_eq!(fft, numpy_fft, epsilon = 1e-10);
 
@@ -361,16 +361,16 @@ mod tests {
 
 	#[test]
 	fn test_stft() {
-		let sample: Array1<f64> = read_npy("test/data/sample.npy").unwrap();
-		let larynx_st: Array2<Complex64> = read_npy("test/data/larynx-stft-sample.npy").unwrap();
+		let sample: Array1<f64> = read_npy("tests/data/audio/sample.npy").unwrap();
+		let larynx_st: Array2<Complex64> = read_npy("tests/data/audio/larynx-stft-sample.npy").unwrap();
 		let st = stft(&sample, 1024, 256);
 		assert_relative_eq!(st, larynx_st, epsilon = 1e-10);
 	}
 
 	#[test]
 	fn test_istft() {
-		let sample: Array1<f64> = read_npy("test/data/sample.npy").unwrap();
-		let larynx_ist: Array1<f64> = read_npy("test/data/larynx-istft-sample.npy").unwrap();
+		let sample: Array1<f64> = read_npy("tests/data/audio/sample.npy").unwrap();
+		let larynx_ist: Array1<f64> = read_npy("tests/data/audio/larynx-istft-sample.npy").unwrap();
 		let st = stft(&sample, 1024, 256);
 		let ist = istft(&st, 1024, 256);
 		assert_relative_eq!(ist, /* sample */ larynx_ist, epsilon = 1e-10);

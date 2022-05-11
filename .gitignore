@@ -182,3 +182,6 @@ dist
 
 # Wix tools
 WixTools/
+
+# ONNX Runtime downloaded models
+**/*.onnx
