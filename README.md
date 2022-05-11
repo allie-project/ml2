@@ -1,5 +1,6 @@
 <div align=center>
 	<h1>ML2 - AI Utilities</h1>
+    <a href="https://app.codecov.io/gh/allie-project/ml2" target="_blank"><img alt="Coverage Results" src="https://img.shields.io/codecov/c/gh/allie-project/ml2?style=for-the-badge"></a> <a href="https://github.com/allie-project/ml2/actions/workflows/test.yml"><img alt="GitHub Workflow Status" src="https://img.shields.io/github/workflow/status/allie-project/ml2/Run%20cargo%20tests?style=for-the-badge"></a>
 </div>
 
 ML2 is the primary AI library used by [Allie Project](https://github.com/allie-project/allie). It provides simplified interfaces for a few ONNX Runtime models, a machine learning framework based on [linfa](https://github.com/rust-ml/linfa), and ONNX Runtime bindings based on [onnxruntime-rs](https://github.com/nbigaouette/onnxruntime-rs).
