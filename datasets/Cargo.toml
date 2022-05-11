@@ -2,13 +2,13 @@
 name = "ml2-datasets"
 version = "1.0.0-dev.20220511"
 authors = ["pyke.io", "Lorenz Schmidt <bytesnake@mailbox.org>"]
-description = "Collection of small datasets for Linfa"
+description = "Collection of small datasets for ml2"
 edition = "2021"
 license = "MIT/Apache-2.0"
-repository = "https://github.com/rust-ml/linfa"
+repository = "https://github.com/allie-project/ml2"
 
 [dependencies]
-ml2 = { path = ".." }
+ml2 = { version = "1.0.0-dev.20220511", path = ".." }
 ndarray = { version = "0.15", features = [ "approx-0_5" ] }
 ndarray-csv = "=0.5.1"
 csv = "1.1"
