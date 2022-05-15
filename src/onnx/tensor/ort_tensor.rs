@@ -38,7 +38,7 @@ where
 	fn from_array_numeric<'m>(
 		memory_info: &'m MemoryInfo,
 		array: &'m mut Array<T, D>,
-		tensor_ptr: *mut sys::OrtValue,
+		tensor_ptr: &'m *mut sys::OrtValue,
 		tensor_ptr_ptr: *mut *mut sys::OrtValue,
 		shape_ptr: *const i64,
 		shape_len: usize
@@ -68,7 +68,7 @@ where
 		assert_non_null_pointer(tensor_ptr, "Tensor")?;
 
 		let mut is_tensor = 0;
-		let status = unsafe { ort().IsTensor.unwrap()(tensor_ptr, &mut is_tensor) };
+		let status = unsafe { ort().IsTensor.unwrap()(*tensor_ptr, &mut is_tensor) };
 		status_to_result(status).map_err(OrtError::IsTensor)?;
 		Ok(())
 	}
@@ -95,10 +95,10 @@ where
 			| TensorElementDataType::Int64
 			| TensorElementDataType::Float64
 			| TensorElementDataType::Uint32
-			| TensorElementDataType::Uint64 => OrtTensor::from_array_numeric(memory_info, &mut array, tensor_ptr, tensor_ptr_ptr, shape_ptr, shape_len)?,
+			| TensorElementDataType::Uint64 => OrtTensor::from_array_numeric(memory_info, &mut array, &tensor_ptr, tensor_ptr_ptr, shape_ptr, shape_len)?,
 			#[cfg(feature = "half")]
 			TensorElementDataType::Bfloat16 | TensorElementDataType::Float16 => {
-				OrtTensor::from_array_numeric(memory_info, &mut array, tensor_ptr, tensor_ptr_ptr, shape_ptr, shape_len)?
+				OrtTensor::from_array_numeric(memory_info, &mut array, &tensor_ptr, tensor_ptr_ptr, shape_ptr, shape_len)?
 			}
 			TensorElementDataType::String => {
 				// create tensor without data -- data is filled in later
