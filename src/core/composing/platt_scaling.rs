@@ -18,7 +18,8 @@
 use std::marker::PhantomData;
 
 use ndarray::{Array1, Array2, ArrayBase, ArrayView1, Data, Ix1, Ix2};
-use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde")]
+use serde_crate::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::core::dataset::{DatasetBase, Pr};
@@ -116,7 +117,8 @@ impl<F: Float, O> ParamGuard for PlattParams<F, O> {
 	}
 }
 
-#[derive(Error, Debug, Clone, Serialize, Deserialize)]
+#[derive(Error, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize), serde(crate = "serde_crate"))]
 /// Errors occur when setting invalid parameters or the optimization process fails.
 pub enum PlattError {
 	#[error("line search did not converge")]

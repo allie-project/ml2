@@ -1,6 +1,6 @@
 use argmin::prelude::*;
 use ndarray::{Array, ArrayBase, Data, Dimension, Zip};
-use serde::{Deserialize, Serialize};
+use serde_crate::{Deserialize, Serialize};
 
 use super::float::Float;
 
@@ -8,7 +8,8 @@ pub fn elem_dot<F: crate::core::Float, A1: Data<Elem = F>, A2: Data<Elem = F>, D
 	Zip::from(a).and(b).fold(F::zero(), |acc, &a, &b| acc + a * b)
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(crate = "serde_crate")]
 pub struct ArgminParam<F, D: Dimension>(pub Array<F, D>);
 
 impl<F, D: Dimension> ArgminParam<F, D> {

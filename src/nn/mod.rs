@@ -23,7 +23,8 @@
 
 use distance::Distance;
 use ndarray::{ArrayBase, ArrayView1, Data, Ix2};
-use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde")]
+use serde_crate::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::core::Float;
@@ -137,7 +138,8 @@ pub trait NearestNeighbourIndex<F: Float> {
 /// let range = nn.within_range(pt.view(), 100.0).unwrap();
 /// ```
 #[non_exhaustive]
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize), serde(crate = "serde_crate"))]
 pub enum CommonNearestNeighbour {
 	/// Linear search
 	LinearSearch,

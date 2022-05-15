@@ -22,7 +22,8 @@ use std::ops::Mul;
 pub use inner::{Inner, KernelInner};
 use ndarray::prelude::*;
 use ndarray::Data;
-use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde")]
+use serde_crate::{Deserialize, Serialize};
 use sprs::{CsMat, CsMatView};
 
 use crate::core::{dataset::AsTargets, dataset::DatasetBase, dataset::FromTargetArray, dataset::Records, traits::Transformer, Float};
@@ -39,15 +40,15 @@ pub enum KernelType {
 }
 
 /// A generic kernel
-#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize), serde(crate = "serde_crate"))]
 pub struct KernelBase<K1: Inner, K2: Inner>
 where
 	K1::Elem: Float,
 	K2::Elem: Float
 {
-	#[serde(bound(serialize = "KernelInner<K1, K2>: Serialize", deserialize = "KernelInner<K1, K2>: Deserialize<'de>"))]
+	#[cfg_attr(feature = "serde", serde(bound(serialize = "KernelInner<K1, K2>: Serialize", deserialize = "KernelInner<K1, K2>: Deserialize<'de>")))]
 	pub inner: KernelInner<K1, K2>,
-	#[serde(bound(serialize = "KernelMethod<K1::Elem>: Serialize", deserialize = "KernelMethod<K1::Elem>: Deserialize<'de>"))]
+	#[cfg_attr(feature = "serde", serde(bound(serialize = "KernelMethod<K1::Elem>: Serialize", deserialize = "KernelMethod<K1::Elem>: Deserialize<'de>")))]
 	/// The inner product that will be used by the kernel
 	pub method: KernelMethod<K1::Elem>
 }

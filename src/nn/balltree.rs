@@ -3,7 +3,8 @@ use std::{cmp::Reverse, collections::BinaryHeap};
 
 use ndarray::{Array1, ArrayBase, Data, Ix2};
 use noisy_float::{checkers::FiniteChecker, NoisyFloat};
-use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde")]
+use serde_crate::{Deserialize, Serialize};
 
 use super::{
 	distance::Distance,
@@ -224,7 +225,8 @@ impl<'a, F: Float, D: Distance<F>> NearestNeighbourIndex<F> for BallTreeIndex<'a
 ///
 /// More details can be found [here](https://en.wikipedia.org/wiki/Ball_tree). This implementation
 /// is based off of the [ball_tree](https://docs.rs/ball-tree/0.2.0/ball_tree/) crate.
-#[derive(Serialize, Deserialize, Default, Clone, Debug)]
+#[derive(Default, Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize), serde(crate = "serde_crate"))]
 pub struct BallTree;
 
 impl BallTree {

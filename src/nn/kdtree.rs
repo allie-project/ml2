@@ -1,5 +1,6 @@
 use ndarray::{aview1, ArrayBase, Data, Ix2};
-use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde")]
+use serde_crate::{Deserialize, Serialize};
 
 use super::{distance::Distance, BuildError, NearestNeighbour, NearestNeighbourIndex, NnError, Point};
 use crate::core::Float;
@@ -65,7 +66,8 @@ impl<'a, F: Float, D: Distance<F>> NearestNeighbourIndex<F> for KdTreeIndex<'a, 
 ///
 /// Unlike other `NearestNeighbour` implementations, `KdTree` requires that points be laid out
 /// contiguously in memory and will panic otherwise.
-#[derive(Serialize, Deserialize, Default, Clone, Debug)]
+#[derive(Debug, Default, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize), serde(crate = "serde_crate"))]
 pub struct KdTree;
 
 impl KdTree {

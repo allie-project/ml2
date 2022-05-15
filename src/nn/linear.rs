@@ -2,7 +2,8 @@ use std::{cmp::Reverse, collections::BinaryHeap};
 
 use ndarray::{ArrayBase, ArrayView2, Data, Ix2};
 use noisy_float::NoisyFloat;
-use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde")]
+use serde_crate::{Deserialize, Serialize};
 
 use super::{distance::Distance, heap_elem::MinHeapElem, BuildError, NearestNeighbour, NearestNeighbourIndex, NnError, Point};
 use crate::core::Float;
@@ -60,7 +61,8 @@ impl<'a, F: Float, D: Distance<F>> NearestNeighbourIndex<F> for LinearSearchInde
 /// Implementation of linear search, which is the simplest nearest neighbour algorithm. All queries
 /// are implemented by scanning through every point, so all of them are `O(N)`. Calling
 /// `from_batch` returns a [`LinearSearchIndex`](struct.LinearSearchIndex.html).
-#[derive(Serialize, Deserialize, Default, Clone, Debug)]
+#[derive(Debug, Default, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize), serde(crate = "serde_crate"))]
 pub struct LinearSearch;
 
 impl LinearSearch {

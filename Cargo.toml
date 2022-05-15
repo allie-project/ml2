@@ -26,6 +26,8 @@ crate-type = [ "lib", "dylib" ]
 [profile.release]
 opt-level = 3
 lto = true
+strip = true
+codegen-units = 1
 panic = "abort"
 
 [package.metadata.docs.rs]
@@ -36,11 +38,12 @@ default = [ "all-modules", "half", "onnx-fetch-models", "onnx-copy-dylibs", "lin
 use-half-intrinsics = [ "half/use-intrinsics" ]
 # used to prevent issues with docs.rs
 disable-build-script = []
+serde = [ "serde_crate", "ndarray/serde" ]
 
 # modules
 onnx = [ "tracing", "lazy_static" ]
 bayes = [ "ndarray-stats" ]
-logistic = [ "ndarray-stats", "argmin" ]
+logistic = [ "ndarray-stats", "argmin", "serde_crate" ]
 nn = [ "ndarray-stats", "noisy_float", "order-stat", "kdtree" ]
 kernel = [ "nn", "sprs" ]
 all-modules = [ "onnx", "bayes", "logistic", "nn", "kernel" ]
@@ -93,8 +96,8 @@ onnxep-armnn = []
 onnxep-rocm = []
 
 [dependencies]
-serde = { version = "1.0", default-features = false, features = [ "std", "derive" ] }
-ndarray = { version = "0.15", features = [ "approx-0_5", "rayon", "serde" ] }
+serde_crate = { package = "serde", version = "1.0", default-features = false, features = [ "std", "derive" ], optional = true }
+ndarray = { version = "0.15", features = [ "approx-0_5" ] }
 ndarray-linalg = { version = "0.14", optional = true }
 ndarray-linalg-rs = { git = "https://github.com/rust-ml/ndarray-linalg-rs.git", optional = true }
 approx = { version = "0.5", features = [ "num-complex" ] }
@@ -116,7 +119,7 @@ ndarray-stats = { version = "0.5", optional = true }
 ndrustfft = "0.3"
 
 # logistic
-argmin = { version = "0.5", features = [ "ndarray", "ndarray-rand" ], optional = true }
+argmin = { version = "0.5", default-features = false, features = [ "ndarray", "ndarray-rand" ], optional = true }
 
 # kernel
 sprs = { version = "0.11", default-features = false, optional = true }
