@@ -46,9 +46,15 @@ where
 	K1::Elem: Float,
 	K2::Elem: Float
 {
-	#[cfg_attr(feature = "serde", serde(bound(serialize = "KernelInner<K1, K2>: Serialize", deserialize = "KernelInner<K1, K2>: Deserialize<'de>")))]
+	#[cfg_attr(
+		feature = "serde",
+		serde(bound(serialize = "KernelInner<K1, K2>: Serialize", deserialize = "KernelInner<K1, K2>: Deserialize<'de>"))
+	)]
 	pub inner: KernelInner<K1, K2>,
-	#[cfg_attr(feature = "serde", serde(bound(serialize = "KernelMethod<K1::Elem>: Serialize", deserialize = "KernelMethod<K1::Elem>: Deserialize<'de>")))]
+	#[cfg_attr(
+		feature = "serde",
+		serde(bound(serialize = "KernelMethod<K1::Elem>: Serialize", deserialize = "KernelMethod<K1::Elem>: Deserialize<'de>"))
+	)]
 	/// The inner product that will be used by the kernel
 	pub method: KernelMethod<K1::Elem>
 }
