@@ -2,9 +2,9 @@
 
 use std::f64::consts::E;
 
-use ndarray::{s, Array, Array1, Array2, Dimension, NewAxis, Zip};
+use ndarray::{concatenate, s, Array, Array1, Array2, Array3, Axis, Dimension, NewAxis, Zip};
 use ndrustfft::{ndfft_r2c_par, ndifft_r2c_par, R2cFftHandler};
-use num_complex::Complex64;
+use num_complex::{Complex, Complex64};
 use num_traits::Float;
 
 use crate::ndarray::{diff, maximum, minimum, subtract_outer};
@@ -295,6 +295,80 @@ pub fn istft(x: &Array2<Complex64>, fft_size: usize, hopsamp: usize) -> Array1<f
 	out
 }
 
+pub fn inverse(magnitude: &Array3<f64>, phase: &Array3<f64>) -> Array2<f64> {
+	let mut phase_sin = phase.clone();
+	phase_sin.par_map_inplace(|x| *x = x.sin());
+	let mut phase_cos = phase.clone();
+	phase_cos.par_map_inplace(|x| *x = x.cos());
+
+	let recombine_magnitude_phase = concatenate![Axis(1), magnitude * phase_cos, magnitude * phase_sin];
+	let (n_b, n_f, n_t) = if let [n_b, n_f, n_t] = recombine_magnitude_phase.shape() {
+		(n_b, n_f, n_t)
+	} else {
+		unreachable!()
+	};
+	let mut x: Array3<Complex64> = Array3::zeros((*n_b, n_f / 2, *n_t));
+	let Complex { mut re, mut im } = x.view_mut().split_complex();
+	re.assign(
+		&recombine_magnitude_phase
+			.slice(s![.., ..n_f / 2, ..])
+			.into_shape((*n_b, n_f / 2, *n_t))
+			.unwrap()
+	);
+	im.assign(
+		&recombine_magnitude_phase
+			.slice(s![.., n_f / 2.., ..])
+			.into_shape((*n_b, n_f / 2, *n_t))
+			.unwrap()
+	);
+
+	let mut inverse_transform = Vec::<Array2<f64>>::with_capacity(*n_b);
+	for y in x.axis_iter(Axis(0)) {
+		let y = istft(&y.t().to_owned(), 1024, 256);
+		let y = y.insert_axis(Axis(0));
+		inverse_transform.push(y);
+	}
+
+	let a1 = inverse_transform[0].shape()[1];
+	let mut res = Array2::from_shape_vec((0, a1), Vec::with_capacity(inverse_transform.len() * a1)).unwrap();
+	for array in inverse_transform {
+		res.append(Axis(0), array.view()).unwrap();
+	}
+	res
+}
+
+pub fn transform(x: &Array2<f64>) -> (Array3<f64>, Array3<f64>) {
+	let batch_size = x.shape()[0];
+	let mut real_part = Vec::<Array3<f64>>::with_capacity(batch_size);
+	let mut imag_part = Vec::<Array3<f64>>::with_capacity(batch_size);
+
+	for y in x.axis_iter(Axis(0)) {
+		let s = stft(&y.to_owned(), 1024, 256);
+		let s = s.t();
+		let view = s.view();
+		let Complex { re, im } = view.split_complex();
+		real_part.push(re.to_owned().insert_axis(Axis(0)));
+		imag_part.push(im.to_owned().insert_axis(Axis(0)));
+	}
+
+	let a1 = real_part[0].shape()[1];
+	let a2 = real_part[0].shape()[2];
+	let mut res_real = Array3::from_shape_vec((0, a1, a2), Vec::with_capacity(batch_size * a1 * a2)).unwrap();
+	let mut res_imag = Array3::from_shape_vec((0, a1, a2), Vec::with_capacity(batch_size * a1 * a2)).unwrap();
+	for array in real_part {
+		res_real.append(Axis(0), array.view()).unwrap();
+	}
+	for array in imag_part {
+		res_imag.append(Axis(0), array.view()).unwrap();
+	}
+
+	let mut magnitude = (&res_real * &res_real) + (&res_imag * &res_imag);
+	magnitude.par_map_inplace(|v| *v = v.sqrt());
+	let mut phase = res_imag.clone();
+	Zip::indexed(&mut phase).par_for_each(|i, v| *v = v.atan2(res_real[i]));
+	(magnitude, phase)
+}
+
 #[cfg(test)]
 mod tests {
 	use approx::assert_relative_eq;
@@ -374,5 +448,26 @@ mod tests {
 		let st = stft(&sample, 1024, 256);
 		let ist = istft(&st, 1024, 256);
 		assert_relative_eq!(ist, /* sample */ larynx_ist, epsilon = 1e-10);
+	}
+
+	#[test]
+	fn test_inverse() {
+		let magnitude: Array3<f64> = read_npy("tests/data/audio/larynx-transform-magnitude.npy").unwrap();
+		let phase: Array3<f64> = read_npy("tests/data/audio/larynx-transform-phase.npy").unwrap();
+		let ist: Array2<f64> = read_npy("tests/data/audio/larynx-inverse-sample.npy").unwrap();
+
+		let i = inverse(&magnitude, &phase);
+		assert_relative_eq!(i, ist, epsilon = 1e-7);
+	}
+
+	#[test]
+	fn test_transform() {
+		let sample: Array1<f64> = read_npy("tests/data/audio/sample.npy").unwrap();
+		let magnitude: Array3<f64> = read_npy("tests/data/audio/larynx-transform-magnitude.npy").unwrap();
+		let phase: Array3<f64> = read_npy("tests/data/audio/larynx-transform-phase.npy").unwrap();
+
+		let (m, p) = transform(&sample.insert_axis(Axis(0)));
+		assert_relative_eq!(m, magnitude, epsilon = 1e-10);
+		assert_relative_eq!(p, phase, epsilon = 1e-10);
 	}
 }
