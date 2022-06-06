@@ -8,7 +8,7 @@ use crate::core::{Float, ParamGuard};
 ///
 /// See [`GaussianNb`](crate::bayes::gaussian_nb::GaussianNb) for information on the model and
 /// [`GaussianNbParams`](crate::bayes::hyperparams::GaussianNbParams) for information on hyperparameters.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct GaussianNbValidParams<F, L> {
 	// Required for calculation stability
 	var_smoothing: F,
@@ -46,6 +46,7 @@ impl<F: Float, L> GaussianNbValidParams<F, L> {
 ///
 /// Returns [`InvalidSmoothing`](NaiveBayesError::InvalidSmoothing) if the smoothing
 /// parameter is negative.
+#[derive(Debug, Clone, PartialEq)]
 pub struct GaussianNbParams<F, L>(GaussianNbValidParams<F, L>);
 
 impl<F: Float, L> Default for GaussianNbParams<F, L> {
@@ -94,7 +95,7 @@ impl<F: Float, L> ParamGuard for GaussianNbParams<F, L> {
 ///
 /// See [`MultinomialNb`](crate::bayes::multinomial_nb::MultinomialNb) for information on the model and
 /// [`MultinomialNbParams`](crate::bayes::hyperparams::MultinomialNbParams) for information on hyperparameters.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct MultinomialNbValidParams<F, L> {
 	// Required for calculation stability
 	alpha: F,
@@ -132,6 +133,7 @@ impl<F: Float, L> MultinomialNbValidParams<F, L> {
 ///
 /// Returns [`InvalidSmoothing`](NaiveBayesError::InvalidSmoothing) if the smoothing
 /// parameter is negative.
+#[derive(Debug, Clone, PartialEq)]
 pub struct MultinomialNbParams<F, L>(MultinomialNbValidParams<F, L>);
 
 impl<F: Float, L> Default for MultinomialNbParams<F, L> {

@@ -59,7 +59,7 @@ fn calc_radius<'a, F: Float, D: Distance<F>>(points: impl Iterator<Item = Point<
 	dist_fn.rdist_to_dist(r_rad)
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 enum BallTreeInner<'a, F: Float> {
 	// Leaf node sphere
 	Leaf {
@@ -129,7 +129,7 @@ impl<'a, F: Float> BallTreeInner<'a, F> {
 }
 
 /// Spatial indexing structure created by [`BallTree`](struct.BallTree.html)
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct BallTreeIndex<'a, F: Float, D: Distance<F>> {
 	tree: BallTreeInner<'a, F>,
 	dist_fn: D,
@@ -225,7 +225,7 @@ impl<'a, F: Float, D: Distance<F>> NearestNeighbourIndex<F> for BallTreeIndex<'a
 ///
 /// More details can be found [here](https://en.wikipedia.org/wiki/Ball_tree). This implementation
 /// is based off of the [ball_tree](https://docs.rs/ball-tree/0.2.0/ball_tree/) crate.
-#[derive(Default, Clone, Debug)]
+#[derive(Default, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize), serde(crate = "serde_crate"))]
 pub struct BallTree;
 
@@ -254,6 +254,14 @@ mod test {
 
 	use super::*;
 	use crate::nn::distance::L2Dist;
+
+	#[test]
+	fn autotraits() {
+		fn has_autotraits<T: Send + Sync + Sized + Unpin>() {}
+		has_autotraits::<BallTree>();
+		has_autotraits::<BallTreeIndex<f64, L2Dist>>();
+		has_autotraits::<BallTreeInner<f64>>();
+	}
 
 	fn assert_partition(input: Array2<f64>, exp_left: Array2<f64>, exp_med: Array1<f64>, exp_right: Array2<f64>, exp_rad: f64) {
 		let vec: Vec<_> = input.rows().into_iter().enumerate().map(|(i, p)| (p, i)).collect();

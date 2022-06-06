@@ -66,7 +66,7 @@ impl<'a, F: Float, D: Distance<F>> NearestNeighbourIndex<F> for KdTreeIndex<'a, 
 ///
 /// Unlike other `NearestNeighbour` implementations, `KdTree` requires that points be laid out
 /// contiguously in memory and will panic otherwise.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize), serde(crate = "serde_crate"))]
 pub struct KdTree;
 

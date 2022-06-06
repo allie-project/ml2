@@ -46,6 +46,7 @@ pub trait Float:
 	+ SampleUniform
 	+ ScalarOperand
 	+ approx::AbsDiffEq
+	+ Unpin
 {
 	#[cfg(feature = "linalg-blas")]
 	type Lapack: Float + Scalar + Lapack;
@@ -153,6 +154,7 @@ impl Deref for Pr {
 /// * `R: Records`: generic over feature matrices or kernel matrices
 /// * `T`: generic over any `ndarray` matrix which can be used as targets. The `AsTargets` trait
 /// bound is omitted here to avoid some repetition in implementations.
+#[derive(Debug, Clone, PartialEq)]
 pub struct DatasetBase<R, T>
 where
 	R: Records
@@ -174,6 +176,7 @@ where
 ///
 /// * `targets`: wrapped target field
 /// * `labels`: counted labels with label-count association
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CountedTargets<L: Label, P> {
 	targets: P,
 	labels: Vec<HashMap<L, usize>>

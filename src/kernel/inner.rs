@@ -21,7 +21,8 @@ pub trait Inner {
 }
 
 /// Allows a kernel to have either a dense or a sparse inner
-/// matrix in a way that is transparent to the user
+/// matrix in a way that is transparent to the user.
+#[derive(Debug, Clone, PartialEq)]
 pub enum KernelInner<K1: Inner, K2: Inner> {
 	Dense(K1),
 	Sparse(K2)

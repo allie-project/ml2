@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, hash::Hash};
 
 use ndarray::{Array1, ArrayBase, ArrayView2, Axis, Data, Ix2};
 use ndarray_stats::QuantileExt;
@@ -191,12 +191,12 @@ where
 /// let model = checked_params.fit_with(Some(model), &ds)?;
 /// # Result::Ok(())
 /// ```
-#[derive(Debug, Clone)]
-pub struct GaussianNb<F, L> {
+#[derive(Debug, Clone, PartialEq)]
+pub struct GaussianNb<F: PartialEq, L: Eq + Hash> {
 	class_info: HashMap<L, GaussianClassInfo<F>>
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq)]
 struct GaussianClassInfo<F> {
 	class_count: usize,
 	prior: F,
@@ -246,10 +246,23 @@ mod tests {
 	use ndarray::{array, Axis};
 
 	use super::{GaussianNb, NaiveBayes, Result};
-	use crate::core::{
-		traits::{Fit, FitWith, Predict},
-		DatasetView
+	use crate::{
+		bayes::{gaussian_nb::GaussianClassInfo, GaussianNbParams, GaussianNbValidParams, NaiveBayesError},
+		core::{
+			traits::{Fit, FitWith, Predict},
+			DatasetView
+		}
 	};
+
+	#[test]
+	fn autotraits() {
+		fn has_autotraits<T: Send + Sync + Sized + Unpin>() {}
+		has_autotraits::<GaussianNb<f64, usize>>();
+		has_autotraits::<GaussianClassInfo<f64>>();
+		has_autotraits::<GaussianNbParams<f64, usize>>();
+		has_autotraits::<GaussianNbValidParams<f64, usize>>();
+		has_autotraits::<NaiveBayesError>();
+	}
 
 	#[test]
 	fn test_gaussian_nb() -> Result<()> {

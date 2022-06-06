@@ -4,6 +4,7 @@ use noisy_float::{checkers::FiniteChecker, NoisyFloat};
 
 use crate::core::Float;
 
+#[derive(Debug, Clone)]
 pub(crate) struct HeapElem<D: Ord, T> {
 	pub(crate) dist: D,
 	pub(crate) elem: T

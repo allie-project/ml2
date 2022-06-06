@@ -96,6 +96,7 @@ fn p_values<F: Float, D: Data<Elem = F>>(data: &ArrayBase<D, Ix2>, ground: &Arra
 ///
 /// The PCCs indicate the linear correlation between variables. This type also supports printing
 /// the PCC as an upper triangle matrix together with the feature names.
+#[derive(Debug, Clone, PartialEq)]
 pub struct PearsonCorrelation<F> {
 	pearson_coeffs: Array1<F>,
 	p_values: Array1<F>,
