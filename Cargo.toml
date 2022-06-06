@@ -63,7 +63,7 @@ blas-blis = [ "linalg-blas", "blis-src/system" ]
 blas-accelerate = [ "linalg-blas", "blas-src/accelerate", "accelerate-src" ]
 
 linalg-blas = [ "ndarray/blas", "blas-src", "ndarray-linalg", "_linalg" ]
-linalg-pure = [ "ndarray-linalg-rs", "_linalg" ]
+linalg-pure = [ "linfa-linalg", "_linalg" ]
 _linalg = [ "argmin" ]
 
 onnx-fetch-models = [ "ureq" ]
@@ -99,7 +99,7 @@ onnxep-rocm = []
 serde_crate = { package = "serde", version = "1.0", default-features = false, features = [ "std", "derive" ], optional = true }
 ndarray = { version = "0.15", features = [ "approx-0_5" ] }
 ndarray-linalg = { version = "0.14", optional = true }
-ndarray-linalg-rs = { git = "https://github.com/rust-ml/ndarray-linalg-rs.git", optional = true }
+linfa-linalg = { version = "0.1", optional = true }
 approx = { version = "0.5", features = [ "num-complex" ] }
 num-complex = "0.4"
 num-traits = "0.2"

@@ -12,10 +12,10 @@ pub mod traits;
 pub use composing::*;
 pub use dataset::{Dataset, DatasetBase, DatasetPr, DatasetView, Float, Label};
 pub use error::Error;
+#[cfg(all(feature = "linalg-pure", not(feature = "linalg-blas")))]
+pub use linfa_linalg as linalg;
 #[cfg(feature = "linalg-blas")]
 pub use ndarray_linalg as linalg;
-#[cfg(all(feature = "linalg-pure", not(feature = "linalg-blas")))]
-pub use ndarray_linalg_rs as linalg;
 pub use param_guard::ParamGuard;
 
 /// Common metrics functions for classification and regression
