@@ -235,8 +235,8 @@ fn extract_zip(filename: &Path, outpath: &Path) {
 	for i in 0..archive.len() {
 		let mut file = archive.by_index(i).unwrap();
 		#[allow(deprecated)]
-		let outpath = outpath.join(file.sanitized_name());
-		if !(&*file.name()).ends_with('/') {
+		let outpath = outpath.join(file.enclosed_name().unwrap());
+		if !file.name().ends_with('/') {
 			println!("File {} extracted to \"{}\" ({} bytes)", i, outpath.as_path().display(), file.size());
 			if let Some(p) = outpath.parent() {
 				if !p.exists() {
