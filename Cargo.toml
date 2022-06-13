@@ -15,20 +15,16 @@ authors = [
     "Lorenz Schmidt <bytesnake@mailbox.org>",
     "Paul Körbitz <koerbitz@google.com>"
 ]
-exclude = [ ".github/", ".vscode/", "test/" ]
+exclude = [ ".github/", ".vscode/", "tests/" ]
 
 [workspace]
 members = [ "datasets" ]
-
-[lib]
-crate-type = [ "lib", "dylib" ]
 
 [profile.release]
 opt-level = 3
 lto = true
 strip = true
 codegen-units = 1
-panic = "abort"
 
 [package.metadata.docs.rs]
 features = [ "all-modules", "half", "onnx-fetch-models", "onnx-copy-dylibs", "linalg-pure" ]
