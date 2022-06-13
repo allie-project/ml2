@@ -126,6 +126,23 @@ impl<'a> SessionBuilder<'a> {
 		Ok(self)
 	}
 
+	/// Enable/disable the parallel execution mode for this session. By default, this is disabled.
+	///
+	/// Parallel execution can improve performance for models with many branches, at the cost of higher memory usage.
+	/// You can configure the amount of threads used to parallelize the execution of the graph via
+	/// [`SessionBuilder::with_inter_threads`].
+	pub fn with_parallel_execution(self, parallel_execution: bool) -> Result<SessionBuilder<'a>> {
+		let execution_mode = if parallel_execution {
+			sys::ExecutionMode::ORT_PARALLEL
+		} else {
+			sys::ExecutionMode::ORT_SEQUENTIAL
+		};
+		let status = unsafe { ort().SetSessionExecutionMode.unwrap()(self.session_options_ptr, execution_mode) };
+		status_to_result(status).map_err(OrtError::SessionOptions)?;
+		assert_null_pointer(status, "SessionStatus")?;
+		Ok(self)
+	}
+
 	/// Set the session's optimization level
 	pub fn with_optimization_level(self, opt_level: GraphOptimizationLevel) -> Result<SessionBuilder<'a>> {
 		// Sets graph optimization level
