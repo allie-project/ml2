@@ -371,11 +371,6 @@ impl<'a> Drop for Session<'a> {
 		} else {
 			unsafe { ort().ReleaseSession.unwrap()(self.session_ptr) };
 		}
-		if self.allocator_ptr.is_null() {
-			error!("Allocator pointer is null, not dropping.");
-		} else {
-			unsafe { ort().ReleaseAllocator.unwrap()(self.allocator_ptr) };
-		}
 
 		self.session_ptr = std::ptr::null_mut();
 		self.allocator_ptr = std::ptr::null_mut();
