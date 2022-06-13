@@ -94,13 +94,33 @@ impl<'a> SessionBuilder<'a> {
 		})
 	}
 
-	/// Configure the session to use a number of threads
-	pub fn with_number_threads(self, num_threads: i16) -> Result<SessionBuilder<'a>> {
-		// FIXME: Pre-built binaries use OpenMP, set env variable instead
-
+	/// Configure the session to use a number of threads to parallelize the execution within nodes. If ONNX Runtime was
+	/// built with OpenMP (as is the case with Microsoft's prebuilt binaries), this will have no effect on the number of
+	/// threads used. Instead, you can configure the number of threads OpenMP uses via the `OMP_NUM_THREADS` environment
+	/// variable.
+	///
+	/// For configuring the number of threads used when the session execution mode is set to `Parallel`, see
+	/// [`SessionBuilder::with_inter_threads`].
+	pub fn with_intra_threads(self, num_threads: i16) -> Result<SessionBuilder<'a>> {
 		// We use a u16 in the builder to cover the 16-bits positive values of a i32.
 		let num_threads = num_threads as i32;
 		let status = unsafe { ort().SetIntraOpNumThreads.unwrap()(self.session_options_ptr, num_threads) };
+		status_to_result(status).map_err(OrtError::SessionOptions)?;
+		assert_null_pointer(status, "SessionStatus")?;
+		Ok(self)
+	}
+
+	/// Configure the session to use a number of threads to parallelize the execution of the graph. If nodes can be run
+	/// in parallel, this sets the maximum number of threads to use to run them in parallel.
+	///
+	/// This has no effect when the session execution mode is set to `Sequential`.
+	///
+	/// For configuring the number of threads used to parallelize the execution within nodes, see
+	/// [`SessionBuilder::with_intra_threads`].
+	pub fn with_inter_threads(self, num_threads: i16) -> Result<SessionBuilder<'a>> {
+		// We use a u16 in the builder to cover the 16-bits positive values of a i32.
+		let num_threads = num_threads as i32;
+		let status = unsafe { ort().SetInterOpNumThreads.unwrap()(self.session_options_ptr, num_threads) };
 		status_to_result(status).map_err(OrtError::SessionOptions)?;
 		assert_null_pointer(status, "SessionStatus")?;
 		Ok(self)
