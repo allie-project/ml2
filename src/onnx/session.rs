@@ -570,7 +570,6 @@ mod dangerous {
 		status_to_result(status).map_err(OrtError::InputName)?;
 		assert_non_null_pointer(name_bytes, "InputName")?;
 
-		// FIXME: Is it safe to keep ownership of the memory?
 		let name = char_p_to_string(name_bytes)?;
 
 		Ok(name)
