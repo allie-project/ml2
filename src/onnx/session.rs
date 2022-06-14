@@ -51,7 +51,7 @@ use crate::{
 /// let mut session = environment
 /// 	.new_session_builder()?
 /// 	.with_optimization_level(GraphOptimizationLevel::Level1)?
-/// 	.with_number_threads(1)?
+/// 	.with_intra_threads(1)?
 /// 	.with_model_from_file("squeezenet.onnx")?;
 /// # Ok(())
 /// # }
