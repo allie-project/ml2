@@ -4,7 +4,7 @@ use ndarray::{Array, ArrayView};
 use tracing::debug;
 
 use crate::onnx::{
-	error::status_to_result, memory::MemoryInfo, ort, sys, tensor::ndarray_tensor::NdArrayTensor, IntoTensorElementDataType, OrtError, OrtResult
+	error::status_to_result, memory::MemoryInfo, ort, sys, tensor::ndarray_tensor::NdArrayTensor, tensor::IntoTensorElementDataType, OrtError, OrtResult
 };
 
 /// Tensor containing data owned by the ONNX Runtime C library, used to return values from inference.

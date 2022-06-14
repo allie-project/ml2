@@ -7,8 +7,8 @@ use crate::onnx::{
 	error::{assert_non_null_pointer, call_ort, status_to_result},
 	memory::MemoryInfo,
 	ort, sys,
-	tensor::ndarray_tensor::NdArrayTensor,
-	IntoTensorElementDataType, OrtError, OrtResult, TensorElementDataType
+	tensor::{ndarray_tensor::NdArrayTensor, IntoTensorElementDataType, TensorElementDataType},
+	OrtError, OrtResult
 };
 
 /// Owned tensor, backed by an [`ndarray::Array`](https://docs.rs/ndarray/latest/ndarray/type.Array.html)

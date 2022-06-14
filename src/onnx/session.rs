@@ -23,9 +23,9 @@ use crate::{
 		ort, sys,
 		tensor::{
 			ort_owned_tensor::{OrtOwnedTensor, OrtOwnedTensorExtractor},
-			OrtTensor
+			IntoTensorElementDataType, OrtTensor, TensorElementDataType
 		},
-		AllocatorType, GraphOptimizationLevel, IntoTensorElementDataType, MemType, TensorElementDataType
+		AllocatorType, GraphOptimizationLevel, MemType
 	}
 };
 
