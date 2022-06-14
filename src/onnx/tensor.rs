@@ -27,10 +27,16 @@ pub mod ndarray_tensor;
 pub mod ort_owned_tensor;
 pub mod ort_tensor;
 
+use std::{fmt, ptr};
+
 pub use ort_owned_tensor::OrtOwnedTensor;
 pub use ort_tensor::OrtTensor;
 
-use crate::onnx::sys::{self as sys, OnnxEnumInt};
+use super::{
+	error::assert_non_null_pointer,
+	sys::{self as sys, OnnxEnumInt},
+	OrtError, OrtResult
+};
 
 /// Enum mapping ONNX Runtime's supported tensor data types.
 #[derive(Debug)]
@@ -171,3 +177,62 @@ impl<T: Utf8Data> IntoTensorElementDataType for T {
 		Some(self.utf8_bytes())
 	}
 }
+
+/// Trait used to map ONNX Runtime types to Rust types.
+pub trait TensorDataToType: Sized + fmt::Debug + Clone {
+	/// The tensor element type that this type can extract from.
+	fn tensor_element_data_type() -> TensorElementDataType;
+
+	/// Extract an `ArrayView` from the ORT-owned tensor.
+	fn extract_array<'t, D>(shape: D, tensor: *mut sys::OrtValue) -> OrtResult<ndarray::ArrayView<'t, Self, D>>
+	where
+		D: ndarray::Dimension;
+}
+
+/// Implements `TensorDataToType` for primitives which can use `GetTensorMutableData`.
+macro_rules! impl_prim_type_from_ort_trait {
+	($type_: ty, $variant: ident) => {
+		impl TensorDataToType for $type_ {
+			fn tensor_element_data_type() -> TensorElementDataType {
+				TensorElementDataType::$variant
+			}
+
+			fn extract_array<'t, D>(shape: D, tensor: *mut sys::OrtValue) -> OrtResult<ndarray::ArrayView<'t, Self, D>>
+			where
+				D: ndarray::Dimension
+			{
+				extract_primitive_array(shape, tensor)
+			}
+		}
+	};
+}
+
+/// Construct an [`ndarray::ArrayView`] for an ORT tensor.
+///
+/// Only to be used on types whose Rust in-memory representation matches ONNX Runtime's (e.g. primitive numeric types
+/// like u32)
+fn extract_primitive_array<'t, D, T: TensorDataToType>(shape: D, tensor: *mut sys::OrtValue) -> OrtResult<ndarray::ArrayView<'t, T, D>>
+where
+	D: ndarray::Dimension
+{
+	// Get pointer to output tensor values
+	let mut output_array_ptr: *mut T = ptr::null_mut();
+	let output_array_ptr_ptr: *mut *mut T = &mut output_array_ptr;
+	let output_array_ptr_ptr_void: *mut *mut std::ffi::c_void = output_array_ptr_ptr as *mut *mut std::ffi::c_void;
+	unsafe { super::error::call_ort(|ort| ort.GetTensorMutableData.unwrap()(tensor, output_array_ptr_ptr_void)) }.map_err(OrtError::GetTensorMutableData)?;
+	assert_non_null_pointer(output_array_ptr, "GetTensorMutableData")?;
+
+	let array_view = unsafe { ndarray::ArrayView::from_shape_ptr(shape, output_array_ptr) };
+	Ok(array_view)
+}
+
+impl_prim_type_from_ort_trait!(f32, Float32);
+impl_prim_type_from_ort_trait!(f64, Float64);
+impl_prim_type_from_ort_trait!(u8, Uint8);
+impl_prim_type_from_ort_trait!(u16, Uint16);
+impl_prim_type_from_ort_trait!(u32, Uint32);
+impl_prim_type_from_ort_trait!(u64, Uint64);
+impl_prim_type_from_ort_trait!(i8, Int8);
+impl_prim_type_from_ort_trait!(i16, Int16);
+impl_prim_type_from_ort_trait!(i32, Int32);
+impl_prim_type_from_ort_trait!(i64, Int64);

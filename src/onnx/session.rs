@@ -18,13 +18,10 @@ use crate::{
 	onnx::{
 		char_p_to_string,
 		environment::Environment,
-		error::{assert_non_null_pointer, assert_null_pointer, status_to_result, NonMatchingDimensionsError, OrtApiError, OrtError, Result},
+		error::{assert_non_null_pointer, assert_null_pointer, call_ort, status_to_result, NonMatchingDimensionsError, OrtApiError, OrtError, Result},
 		memory::MemoryInfo,
 		ort, sys,
-		tensor::{
-			ort_owned_tensor::{OrtOwnedTensor, OrtOwnedTensorExtractor},
-			IntoTensorElementDataType, OrtTensor, TensorElementDataType
-		},
+		tensor::{ort_owned_tensor::OrtOwnedTensor, IntoTensorElementDataType, OrtTensor, TensorDataToType, TensorElementDataType},
 		AllocatorType, GraphOptimizationLevel, MemType
 	}
 };
@@ -385,7 +382,7 @@ impl<'a> Session<'a> {
 	pub fn run<'s, 't, 'm, TIn, TOut, D>(&'s mut self, input_arrays: Vec<Array<TIn, D>>) -> Result<Vec<OrtOwnedTensor<'t, 'm, TOut, ndarray::IxDyn>>>
 	where
 		TIn: IntoTensorElementDataType + Debug + Clone,
-		TOut: IntoTensorElementDataType + Debug + Clone,
+		TOut: TensorDataToType,
 		D: ndarray::Dimension,
 		'm: 't, // 'm outlives 't (memory info outlives tensor)
 		's: 'm  // 's outlives 'm (session outlives memory info)
@@ -441,17 +438,24 @@ impl<'a> Session<'a> {
 		let memory_info_ref = &self.memory_info;
 		let outputs: Result<Vec<OrtOwnedTensor<TOut, ndarray::Dim<ndarray::IxDynImpl>>>> = output_tensor_extractors_ptrs
 			.into_iter()
-			.map(|ptr| {
-				let mut tensor_info_ptr: *mut sys::OrtTensorTypeAndShapeInfo = std::ptr::null_mut();
-				let status = unsafe { ort().GetTensorTypeAndShape.unwrap()(ptr, &mut tensor_info_ptr as _) };
-				status_to_result(status).map_err(OrtError::GetTensorTypeAndShape)?;
-				let dims = unsafe { get_tensor_dimensions(tensor_info_ptr) };
-				unsafe { ort().ReleaseTensorTypeAndShapeInfo.unwrap()(tensor_info_ptr) };
-				let dims: Vec<_> = dims?.iter().map(|&n| n as usize).collect();
+			.map(|tensor_ptr| {
+				let dims = unsafe {
+					call_with_tensor_info(tensor_ptr, |tensor_info_ptr| {
+						get_tensor_dimensions(tensor_info_ptr).map(|dims| dims.iter().map(|&n| n as usize).collect::<Vec<_>>())
+					})
+				}?;
 
-				let mut output_tensor_extractor = OrtOwnedTensorExtractor::new(memory_info_ref, ndarray::IxDyn(&dims));
-				output_tensor_extractor.tensor_ptr = ptr;
-				output_tensor_extractor.extract::<TOut>()
+				// NOTE: Both tensor and array will point to the same data, nothing is copied.
+				// As such, there is no need to free the pointer used to create the ArrayView.
+				assert_non_null_pointer(tensor_ptr, "Run")?;
+
+				let mut is_tensor = 0;
+				unsafe { call_ort(|ort| ort.IsTensor.unwrap()(tensor_ptr, &mut is_tensor)) }.map_err(OrtError::IsTensor)?;
+				assert_eq!(is_tensor, 1);
+
+				let array_view = TOut::extract_array(ndarray::IxDyn(&dims), tensor_ptr)?;
+
+				Ok(OrtOwnedTensor::new(tensor_ptr, array_view, memory_info_ref))
 			})
 			.collect();
 
@@ -531,18 +535,37 @@ impl<'a> Session<'a> {
 
 unsafe fn get_tensor_dimensions(tensor_info_ptr: *const sys::OrtTensorTypeAndShapeInfo) -> Result<Vec<i64>> {
 	let mut num_dims = 0;
-	let status = ort().GetDimensionsCount.unwrap()(tensor_info_ptr, &mut num_dims);
-	status_to_result(status).map_err(OrtError::GetDimensionsCount)?;
-	(num_dims != 0).then(|| ()).ok_or(OrtError::InvalidDimensions)?;
+	call_ort(|ort| ort.GetDimensionsCount.unwrap()(tensor_info_ptr, &mut num_dims)).map_err(OrtError::GetDimensionsCount)?;
+	assert_ne!(num_dims, 0);
 
 	let mut node_dims: Vec<i64> = vec![0; num_dims as usize];
-	let status = ort().GetDimensions.unwrap()(
-		tensor_info_ptr,
-		node_dims.as_mut_ptr(), // FIXME: UB?
-		num_dims
-	);
-	status_to_result(status).map_err(OrtError::GetDimensions)?;
+	call_ort(|ort| ort.GetDimensions.unwrap()(tensor_info_ptr, node_dims.as_mut_ptr(), num_dims)).map_err(OrtError::GetDimensions)?;
 	Ok(node_dims)
+}
+
+unsafe fn extract_data_type(tensor_info_ptr: *const sys::OrtTensorTypeAndShapeInfo) -> Result<TensorElementDataType> {
+	let mut type_sys = sys::ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED;
+	call_ort(|ort| ort.GetTensorElementType.unwrap()(tensor_info_ptr, &mut type_sys)).map_err(OrtError::TensorElementType)?;
+	assert_ne!(type_sys, sys::ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED);
+	// This transmute should be safe since its value is read from GetTensorElementType, which we must trust
+	Ok(std::mem::transmute(type_sys))
+}
+
+/// Calls the provided closure with the result of `GetTensorTypeAndShape`, deallocating the
+/// resulting `*OrtTensorTypeAndShapeInfo` before returning.
+unsafe fn call_with_tensor_info<F, T>(tensor_ptr: *const sys::OrtValue, mut f: F) -> Result<T>
+where
+	F: FnMut(*const sys::OrtTensorTypeAndShapeInfo) -> Result<T>
+{
+	let mut tensor_info_ptr: *mut sys::OrtTensorTypeAndShapeInfo = std::ptr::null_mut();
+	call_ort(|ort| ort.GetTensorTypeAndShape.unwrap()(tensor_ptr, &mut tensor_info_ptr as _)).map_err(OrtError::GetTensorTypeAndShape)?;
+
+	let res = f(tensor_info_ptr);
+
+	// no return code, so no errors to check for
+	ort().ReleaseTensorTypeAndShapeInfo.unwrap()(tensor_info_ptr);
+
+	res
 }
 
 /// This module contains dangerous functions working on raw pointers.
@@ -550,6 +573,7 @@ unsafe fn get_tensor_dimensions(tensor_info_ptr: *const sys::OrtTensorTypeAndSha
 /// `SessionBuilder::with_model_from_file()` method.
 mod dangerous {
 	use super::*;
+	use crate::onnx::tensor::TensorElementDataType;
 
 	pub(super) fn extract_inputs_count(session_ptr: *mut sys::OrtSession) -> Result<usize> {
 		let f = ort().SessionGetInputCount.unwrap();
@@ -649,14 +673,7 @@ mod dangerous {
 		status_to_result(status).map_err(OrtError::CastTypeInfoToTensorInfo)?;
 		assert_non_null_pointer(tensor_info_ptr, "TensorInfo")?;
 
-		let mut type_sys = sys::ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED;
-		let status = unsafe { ort().GetTensorElementType.unwrap()(tensor_info_ptr, &mut type_sys) };
-		status_to_result(status).map_err(OrtError::TensorElementType)?;
-		(type_sys != sys::ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED)
-			.then(|| ())
-			.ok_or(OrtError::UndefinedTensorElementType)?;
-		// This transmute should be safe since its value is read from GetTensorElementType which we must trust.
-		let io_type: TensorElementDataType = unsafe { std::mem::transmute(type_sys) };
+		let io_type: TensorElementDataType = unsafe { extract_data_type(tensor_info_ptr)? };
 
 		// info!("{} : type={}", i, type_);
 
