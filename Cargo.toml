@@ -146,7 +146,7 @@ rand_xoshiro = "0.6"
 criterion = { version = "0.3", features = [ "html_reports" ] }
 
 [build-dependencies]
-bindgen = { version = "0.59", optional = true }
+bindgen = { version = "0.60", optional = true }
 ureq = "2.1"
 zip = { version = "0.6", default-features = false, features = [ "deflate" ] }
 
