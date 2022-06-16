@@ -178,10 +178,10 @@ pub enum OrtDownloadError {
 /// Wrapper type around ONNX's `OrtStatus` pointer.
 ///
 /// This wrapper exists to facilitate conversion from C raw pointers to Rust error types.
-pub struct OrtStatusWrapper(*const sys::OrtStatus);
+pub struct OrtStatusWrapper(*mut sys::OrtStatus);
 
-impl From<*const sys::OrtStatus> for OrtStatusWrapper {
-	fn from(status: *const sys::OrtStatus) -> Self {
+impl From<*mut sys::OrtStatus> for OrtStatusWrapper {
+	fn from(status: *mut sys::OrtStatus) -> Self {
 		OrtStatusWrapper(status)
 	}
 }
@@ -211,7 +211,13 @@ impl From<OrtStatusWrapper> for std::result::Result<(), OrtApiError> {
 	}
 }
 
-pub(crate) fn status_to_result(status: *const sys::OrtStatus) -> std::result::Result<(), OrtApiError> {
+impl Drop for OrtStatusWrapper {
+	fn drop(&mut self) {
+		unsafe { ort().ReleaseStatus.unwrap()(self.0) }
+	}
+}
+
+pub(crate) fn status_to_result(status: *mut sys::OrtStatus) -> std::result::Result<(), OrtApiError> {
 	let status_wrapper: OrtStatusWrapper = status.into();
 	status_wrapper.into()
 }
@@ -221,7 +227,7 @@ pub(crate) fn status_to_result(status: *const sys::OrtStatus) -> std::result::Re
 /// [`OrtApiError`]: enum.OrtApiError.html
 pub(crate) unsafe fn call_ort<F>(mut f: F) -> std::result::Result<(), OrtApiError>
 where
-	F: FnMut(sys::OrtApi) -> *const sys::OrtStatus
+	F: FnMut(sys::OrtApi) -> *mut sys::OrtStatus
 {
 	status_to_result(f(ort()))
 }
