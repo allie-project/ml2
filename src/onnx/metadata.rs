@@ -22,52 +22,55 @@ impl Metadata {
 	}
 
 	pub fn description(&self) -> OrtResult<String> {
-		let mut out_str: *mut i8 = std::ptr::null_mut();
-		let status = unsafe { ort().ModelMetadataGetDescription.unwrap()(self.metadata_ptr, self.allocator_ptr, &mut out_str) };
+		let mut str_bytes: *mut i8 = std::ptr::null_mut();
+		let status = unsafe { ort().ModelMetadataGetDescription.unwrap()(self.metadata_ptr, self.allocator_ptr, &mut str_bytes) };
 		status_to_result(status).map_err(OrtError::Allocator)?;
-		assert_non_null_pointer(out_str, "ModelMetadataGetDescription")?;
+		assert_non_null_pointer(str_bytes, "ModelMetadataGetDescription")?;
 
-		let out_str = char_p_to_string(out_str)?;
-		Ok(out_str)
+		let value = char_p_to_string(str_bytes)?;
+		unsafe { (*self.allocator_ptr).Free.unwrap()(self.allocator_ptr, str_bytes as *mut std::ffi::c_void) };
+		Ok(value)
 	}
 
 	pub fn producer(&self) -> OrtResult<String> {
-		let mut out_str: *mut i8 = std::ptr::null_mut();
-		let status = unsafe { ort().ModelMetadataGetProducerName.unwrap()(self.metadata_ptr, self.allocator_ptr, &mut out_str) };
+		let mut str_bytes: *mut i8 = std::ptr::null_mut();
+		let status = unsafe { ort().ModelMetadataGetProducerName.unwrap()(self.metadata_ptr, self.allocator_ptr, &mut str_bytes) };
 		status_to_result(status).map_err(OrtError::Allocator)?;
-		assert_non_null_pointer(out_str, "ModelMetadataGetProducerName")?;
+		assert_non_null_pointer(str_bytes, "ModelMetadataGetProducerName")?;
 
-		let out_str = char_p_to_string(out_str)?;
-		Ok(out_str)
+		let value = char_p_to_string(str_bytes)?;
+		unsafe { (*self.allocator_ptr).Free.unwrap()(self.allocator_ptr, str_bytes as *mut std::ffi::c_void) };
+		Ok(value)
 	}
 
 	pub fn name(&self) -> OrtResult<String> {
-		let mut out_str: *mut i8 = std::ptr::null_mut();
-		let status = unsafe { ort().ModelMetadataGetGraphName.unwrap()(self.metadata_ptr, self.allocator_ptr, &mut out_str) };
+		let mut str_bytes: *mut i8 = std::ptr::null_mut();
+		let status = unsafe { ort().ModelMetadataGetGraphName.unwrap()(self.metadata_ptr, self.allocator_ptr, &mut str_bytes) };
 		status_to_result(status).map_err(OrtError::Allocator)?;
-		assert_non_null_pointer(out_str, "ModelMetadataGetGraphName")?;
+		assert_non_null_pointer(str_bytes, "ModelMetadataGetGraphName")?;
 
-		let out_str = char_p_to_string(out_str)?;
-		Ok(out_str)
+		let value = char_p_to_string(str_bytes)?;
+		unsafe { (*self.allocator_ptr).Free.unwrap()(self.allocator_ptr, str_bytes as *mut std::ffi::c_void) };
+		Ok(value)
 	}
 
 	pub fn version(&self) -> OrtResult<i64> {
-		let mut out_ver = 0i64;
-		let status = unsafe { ort().ModelMetadataGetVersion.unwrap()(self.metadata_ptr, &mut out_ver) };
+		let mut ver = 0i64;
+		let status = unsafe { ort().ModelMetadataGetVersion.unwrap()(self.metadata_ptr, &mut ver) };
 		status_to_result(status).map_err(OrtError::Allocator)?;
 
-		Ok(out_ver)
+		Ok(ver)
 	}
 
 	pub fn custom(&self, key: &str) -> OrtResult<Option<String>> {
-		let mut out_str: *mut c_char = std::ptr::null_mut();
+		let mut str_bytes: *mut c_char = std::ptr::null_mut();
 		let key_str = CString::new(key)?;
-		let status = unsafe { ort().ModelMetadataLookupCustomMetadataMap.unwrap()(self.metadata_ptr, self.allocator_ptr, key_str.as_ptr(), &mut out_str) };
+		let status = unsafe { ort().ModelMetadataLookupCustomMetadataMap.unwrap()(self.metadata_ptr, self.allocator_ptr, key_str.as_ptr(), &mut str_bytes) };
 		status_to_result(status).map_err(OrtError::Allocator)?;
-		if !out_str.is_null() {
+		if !str_bytes.is_null() {
 			unsafe {
-				let value = char_p_to_string(out_str)?;
-				(*self.allocator_ptr).Free.unwrap()(self.allocator_ptr, out_str as *mut c_void);
+				let value = char_p_to_string(str_bytes)?;
+				(*self.allocator_ptr).Free.unwrap()(self.allocator_ptr, str_bytes as *mut c_void);
 				Ok(Some(value))
 			}
 		} else {
