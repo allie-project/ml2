@@ -40,6 +40,10 @@ mod download {
 			.with_model_downloaded(ImageClassification::SqueezeNet)
 			.expect("Could not download model from file");
 
+		let metadata = session.metadata().unwrap();
+		assert_eq!(metadata.name().unwrap(), "main");
+		assert_eq!(metadata.producer().unwrap(), "");
+
 		let class_labels = get_imagenet_labels().unwrap();
 
 		let input0_shape: Vec<usize> = session.inputs[0].dimensions().map(|d| d.unwrap()).collect();
@@ -130,6 +134,10 @@ mod download {
 			.with_model_downloaded(DomainBasedImageClassification::Mnist)
 			.expect("Could not download model from file");
 
+		let metadata = session.metadata().unwrap();
+		assert_eq!(metadata.name().unwrap(), "CNTKGraph");
+		assert_eq!(metadata.producer().unwrap(), "CNTK");
+
 		let input0_shape: Vec<usize> = session.inputs[0].dimensions().map(|d| d.unwrap()).collect();
 		let output0_shape: Vec<usize> = session.outputs[0].dimensions().map(|d| d.unwrap()).collect();
 
@@ -217,6 +225,10 @@ mod download {
 					.join("upsample.onnx")
 			)
 			.expect("Could not open model from file");
+
+		let metadata = session.metadata().unwrap();
+		assert_eq!(metadata.name().unwrap(), "tf2onnx");
+		assert_eq!(metadata.producer().unwrap(), "tf2onnx");
 
 		assert_eq!(session.inputs[0].dimensions().collect::<Vec<_>>(), [None, None, None, Some(3)]);
 		assert_eq!(session.outputs[0].dimensions().collect::<Vec<_>>(), [None, None, None, Some(3)]);
