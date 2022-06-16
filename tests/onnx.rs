@@ -13,7 +13,7 @@ mod download {
 	use ml2::onnx::{
 		download::vision::{DomainBasedImageClassification, ImageClassification},
 		environment::Environment,
-		GraphOptimizationLevel, LoggingLevel
+		GraphOptimizationLevel, LoggingLevel, OrtResult
 	};
 	use ndarray::s;
 	use test_log::test;
@@ -21,30 +21,26 @@ mod download {
 	use super::*;
 
 	#[test]
-	fn squeezenet_mushroom() {
+	fn squeezenet_mushroom() -> OrtResult<()> {
 		const IMAGE_TO_LOAD: &str = "mushroom.png";
 
 		let environment = Environment::builder()
 			.with_name("integration_test")
 			.with_log_level(LoggingLevel::Warning)
-			.build()
-			.unwrap();
+			.build()?;
 
 		let mut session = environment
-			.new_session_builder()
-			.unwrap()
-			.with_optimization_level(GraphOptimizationLevel::Level1)
-			.unwrap()
-			.with_intra_threads(1)
-			.unwrap()
+			.new_session_builder()?
+			.with_optimization_level(GraphOptimizationLevel::Level1)?
+			.with_intra_threads(1)?
 			.with_model_downloaded(ImageClassification::SqueezeNet)
 			.expect("Could not download model from file");
 
-		let metadata = session.metadata().unwrap();
-		assert_eq!(metadata.name().unwrap(), "main");
-		assert_eq!(metadata.producer().unwrap(), "");
+		let metadata = session.metadata()?;
+		assert_eq!(metadata.name()?, "main");
+		assert_eq!(metadata.producer()?, "");
 
-		let class_labels = get_imagenet_labels().unwrap();
+		let class_labels = get_imagenet_labels()?;
 
 		let input0_shape: Vec<usize> = session.inputs[0].dimensions().map(|d| d.unwrap()).collect();
 		let output0_shape: Vec<usize> = session.outputs[0].dimensions().map(|d| d.unwrap()).collect();
@@ -93,7 +89,7 @@ mod download {
 		let input_tensor_values = vec![array];
 
 		// Perform the inference
-		let outputs: Vec<ml2::onnx::tensor::OrtOwnedTensor<f32, ndarray::Dim<ndarray::IxDynImpl>>> = session.run(input_tensor_values).unwrap();
+		let outputs: Vec<ml2::onnx::tensor::OrtOwnedTensor<f32, ndarray::Dim<ndarray::IxDynImpl>>> = session.run(input_tensor_values)?;
 
 		// Downloaded model does not have a softmax as final layer; call softmax on second axis
 		// and iterate on resulting probabilities, creating an index to later access labels.
@@ -106,37 +102,28 @@ mod download {
 
 		assert_eq!(probabilities[0].0, 947, "Expecting class for {} to be a mushroom (index 947 in labels file)", IMAGE_TO_LOAD);
 
-		// for i in 0..5 {
-		//     println!(
-		//         "class={} ({}); probability={}",
-		//         labels[probabilities[i].0], probabilities[i].0, probabilities[i].1
-		//     );
-		// }
+		Ok(())
 	}
 
 	#[test]
-	fn mnist_5() {
+	fn mnist_5() -> OrtResult<()> {
 		const IMAGE_TO_LOAD: &str = "mnist_5.jpg";
 
 		let environment = Environment::builder()
 			.with_name("integration_test")
 			.with_log_level(LoggingLevel::Warning)
-			.build()
-			.unwrap();
+			.build()?;
 
 		let mut session = environment
-			.new_session_builder()
-			.unwrap()
-			.with_optimization_level(GraphOptimizationLevel::Level1)
-			.unwrap()
-			.with_intra_threads(1)
-			.unwrap()
+			.new_session_builder()?
+			.with_optimization_level(GraphOptimizationLevel::Level1)?
+			.with_intra_threads(1)?
 			.with_model_downloaded(DomainBasedImageClassification::Mnist)
 			.expect("Could not download model from file");
 
-		let metadata = session.metadata().unwrap();
-		assert_eq!(metadata.name().unwrap(), "CNTKGraph");
-		assert_eq!(metadata.producer().unwrap(), "CNTK");
+		let metadata = session.metadata()?;
+		assert_eq!(metadata.name()?, "CNTKGraph");
+		assert_eq!(metadata.producer()?, "CNTK");
 
 		let input0_shape: Vec<usize> = session.inputs[0].dimensions().map(|d| d.unwrap()).collect();
 		let output0_shape: Vec<usize> = session.outputs[0].dimensions().map(|d| d.unwrap()).collect();
@@ -168,7 +155,7 @@ mod download {
 		let input_tensor_values = vec![array];
 
 		// Perform the inference
-		let outputs: Vec<ml2::onnx::tensor::OrtOwnedTensor<f32, ndarray::Dim<ndarray::IxDynImpl>>> = session.run(input_tensor_values).unwrap();
+		let outputs: Vec<ml2::onnx::tensor::OrtOwnedTensor<f32, ndarray::Dim<ndarray::IxDynImpl>>> = session.run(input_tensor_values)?;
 
 		let output: &OrtOwnedTensor<f32, _> = &outputs[0];
 		let mut probabilities: Vec<(usize, f32)> = output.softmax(ndarray::Axis(1)).iter().copied().enumerate().collect::<Vec<_>>();
@@ -177,6 +164,8 @@ mod download {
 		probabilities.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
 
 		assert_eq!(probabilities[0].0, 5, "Expecting class for {} is '5' (not {})", IMAGE_TO_LOAD, probabilities[0].0);
+
+		Ok(())
 	}
 
 	/// This test verifies that dynamically sized inputs and outputs work. It loads and runs
@@ -201,22 +190,18 @@ mod download {
 	/// ])
 	/// ```
 	#[test]
-	fn upsample() {
+	fn upsample() -> OrtResult<()> {
 		const IMAGE_TO_LOAD: &str = "mushroom.png";
 
 		let environment = Environment::builder()
 			.with_name("integration_test")
 			.with_log_level(LoggingLevel::Warning)
-			.build()
-			.unwrap();
+			.build()?;
 
 		let mut session = environment
-			.new_session_builder()
-			.unwrap()
-			.with_optimization_level(GraphOptimizationLevel::Level1)
-			.unwrap()
-			.with_intra_threads(1)
-			.unwrap()
+			.new_session_builder()?
+			.with_optimization_level(GraphOptimizationLevel::Level1)?
+			.with_intra_threads(1)?
 			.with_model_from_file(
 				Path::new(env!("CARGO_MANIFEST_DIR"))
 					.join("tests")
@@ -226,9 +211,9 @@ mod download {
 			)
 			.expect("Could not open model from file");
 
-		let metadata = session.metadata().unwrap();
-		assert_eq!(metadata.name().unwrap(), "tf2onnx");
-		assert_eq!(metadata.producer().unwrap(), "tf2onnx");
+		let metadata = session.metadata()?;
+		assert_eq!(metadata.name()?, "tf2onnx");
+		assert_eq!(metadata.producer()?, "tf2onnx");
 
 		assert_eq!(session.inputs[0].dimensions().collect::<Vec<_>>(), [None, None, None, Some(3)]);
 		assert_eq!(session.outputs[0].dimensions().collect::<Vec<_>>(), [None, None, None, Some(3)]);
@@ -256,13 +241,15 @@ mod download {
 		let input_tensor_values = vec![array];
 
 		// Perform the inference
-		let outputs: Vec<ml2::onnx::tensor::OrtOwnedTensor<f32, ndarray::Dim<ndarray::IxDynImpl>>> = session.run(input_tensor_values).unwrap();
+		let outputs: Vec<ml2::onnx::tensor::OrtOwnedTensor<f32, ndarray::Dim<ndarray::IxDynImpl>>> = session.run(input_tensor_values)?;
 
 		assert_eq!(outputs.len(), 1);
 		let output = &outputs[0];
 
 		// The image should have doubled in size
 		assert_eq!(output.shape(), [1, 448, 448, 3]);
+
+		Ok(())
 	}
 }
 
