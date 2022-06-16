@@ -105,7 +105,10 @@ pub enum OrtError {
 	UndefinedTensorElementType,
 	/// Error occurred when checking if ONNX tensor was properly initialized
 	#[error("Failed to check if tensor is a tensor or was properly initialized")]
-	IsTensorCheck
+	IsTensorCheck,
+	/// Could not retrieve model metadata.
+	#[error("Failed to retrieve model metadata: {0}")]
+	GetModelMetadata(OrtApiError)
 }
 
 /// Error used when input dimensions defined in the model and passed from an inference call do not match.

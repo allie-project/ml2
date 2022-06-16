@@ -2,6 +2,7 @@ pub mod download;
 pub mod environment;
 pub mod error;
 pub mod memory;
+pub mod metadata;
 pub mod session;
 pub mod sys;
 pub mod tensor;

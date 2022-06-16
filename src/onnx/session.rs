@@ -11,6 +11,7 @@ use std::{ffi::CString, fmt::Debug, path::Path};
 use ndarray::Array;
 use tracing::{debug, error};
 
+use super::metadata::Metadata;
 #[cfg(feature = "onnx-fetch-models")]
 use crate::onnx::{download::OnnxModel, error::OrtDownloadError};
 use crate::{
@@ -530,6 +531,13 @@ impl<'a> Session<'a> {
 		}
 
 		Ok(())
+	}
+
+	pub fn metadata(&self) -> Result<Metadata> {
+		let mut metadata_ptr: *mut sys::OrtModelMetadata = std::ptr::null_mut();
+		unsafe { call_ort(|ort| ort.SessionGetModelMetadata.unwrap()(self.session_ptr, &mut metadata_ptr)) }.map_err(OrtError::GetModelMetadata)?;
+		assert_non_null_pointer(metadata_ptr, "SessionGetModelMetadata")?;
+		Ok(Metadata::new(metadata_ptr, self.allocator_ptr))
 	}
 }
 
