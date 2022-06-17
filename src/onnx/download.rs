@@ -57,7 +57,7 @@ impl OnnxModel {
 				.timeout(Duration::from_secs(180))
 				.call()
 				.map_err(Box::new)
-				.map_err(OrtDownloadError::UreqError)?;
+				.map_err(OrtDownloadError::FetchError)?;
 
 			assert!(resp.has("Content-Length"));
 			let len = resp.header("Content-Length").and_then(|s| s.parse::<usize>().ok()).unwrap();

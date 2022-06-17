@@ -8,7 +8,7 @@ use crate::core::{Float, ParamGuard};
 ///
 /// See [`GaussianNb`](crate::bayes::gaussian_nb::GaussianNb) for information on the model and
 /// [`GaussianNbParams`](crate::bayes::hyperparams::GaussianNbParams) for information on hyperparameters.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GaussianNbValidParams<F, L> {
 	// Required for calculation stability
 	var_smoothing: F,
@@ -95,7 +95,7 @@ impl<F: Float, L> ParamGuard for GaussianNbParams<F, L> {
 ///
 /// See [`MultinomialNb`](crate::bayes::multinomial_nb::MultinomialNb) for information on the model and
 /// [`MultinomialNbParams`](crate::bayes::hyperparams::MultinomialNbParams) for information on hyperparameters.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MultinomialNbValidParams<F, L> {
 	// Required for calculation stability
 	alpha: F,

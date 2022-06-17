@@ -8,7 +8,7 @@ pub fn elem_dot<F: crate::core::Float, A1: Data<Elem = F>, A2: Data<Elem = F>, D
 	Zip::from(a).and(b).fold(F::zero(), |acc, &a, &b| acc + a * b)
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(crate = "serde_crate")]
 pub struct ArgminParam<F, D: Dimension>(pub Array<F, D>);
 

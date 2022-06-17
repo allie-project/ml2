@@ -16,7 +16,7 @@ impl Metadata {
 
 	pub fn description(&self) -> OrtResult<String> {
 		let mut str_bytes: *mut i8 = std::ptr::null_mut();
-		ortsys![unsafe ModelMetadataGetDescription(self.metadata_ptr, self.allocator_ptr, &mut str_bytes) -> OrtError::Allocator; nonNull(str_bytes)];
+		ortsys![unsafe ModelMetadataGetDescription(self.metadata_ptr, self.allocator_ptr, &mut str_bytes) -> OrtError::GetAllocator; nonNull(str_bytes)];
 
 		let value = char_p_to_string(str_bytes)?;
 		ortfree!(unsafe self.allocator_ptr, str_bytes);
@@ -25,7 +25,7 @@ impl Metadata {
 
 	pub fn producer(&self) -> OrtResult<String> {
 		let mut str_bytes: *mut i8 = std::ptr::null_mut();
-		ortsys![unsafe ModelMetadataGetProducerName(self.metadata_ptr, self.allocator_ptr, &mut str_bytes) -> OrtError::Allocator; nonNull(str_bytes)];
+		ortsys![unsafe ModelMetadataGetProducerName(self.metadata_ptr, self.allocator_ptr, &mut str_bytes) -> OrtError::GetAllocator; nonNull(str_bytes)];
 
 		let value = char_p_to_string(str_bytes)?;
 		ortfree!(unsafe self.allocator_ptr, str_bytes);
@@ -34,7 +34,7 @@ impl Metadata {
 
 	pub fn name(&self) -> OrtResult<String> {
 		let mut str_bytes: *mut i8 = std::ptr::null_mut();
-		ortsys![unsafe ModelMetadataGetGraphName(self.metadata_ptr, self.allocator_ptr, &mut str_bytes) -> OrtError::Allocator; nonNull(str_bytes)];
+		ortsys![unsafe ModelMetadataGetGraphName(self.metadata_ptr, self.allocator_ptr, &mut str_bytes) -> OrtError::GetAllocator; nonNull(str_bytes)];
 
 		let value = char_p_to_string(str_bytes)?;
 		ortfree!(unsafe self.allocator_ptr, str_bytes);
@@ -43,14 +43,14 @@ impl Metadata {
 
 	pub fn version(&self) -> OrtResult<i64> {
 		let mut ver = 0i64;
-		ortsys![unsafe ModelMetadataGetVersion(self.metadata_ptr, &mut ver) -> OrtError::Allocator];
+		ortsys![unsafe ModelMetadataGetVersion(self.metadata_ptr, &mut ver) -> OrtError::GetAllocator];
 		Ok(ver)
 	}
 
 	pub fn custom(&self, key: &str) -> OrtResult<Option<String>> {
 		let mut str_bytes: *mut c_char = std::ptr::null_mut();
 		let key_str = CString::new(key)?;
-		ortsys![unsafe ModelMetadataLookupCustomMetadataMap(self.metadata_ptr, self.allocator_ptr, key_str.as_ptr(), &mut str_bytes) -> OrtError::Allocator];
+		ortsys![unsafe ModelMetadataLookupCustomMetadataMap(self.metadata_ptr, self.allocator_ptr, key_str.as_ptr(), &mut str_bytes) -> OrtError::GetAllocator];
 		if !str_bytes.is_null() {
 			unsafe {
 				let value = char_p_to_string(str_bytes)?;

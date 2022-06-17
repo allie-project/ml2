@@ -30,7 +30,7 @@ mod download {
 			.build()?;
 
 		let mut session = environment
-			.new_session_builder()?
+			.session()?
 			.with_optimization_level(GraphOptimizationLevel::Level1)?
 			.with_intra_threads(1)?
 			.with_model_downloaded(ImageClassification::SqueezeNet)
@@ -115,7 +115,7 @@ mod download {
 			.build()?;
 
 		let mut session = environment
-			.new_session_builder()?
+			.session()?
 			.with_optimization_level(GraphOptimizationLevel::Level1)?
 			.with_intra_threads(1)?
 			.with_model_downloaded(DomainBasedImageClassification::Mnist)
@@ -199,7 +199,7 @@ mod download {
 			.build()?;
 
 		let mut session = environment
-			.new_session_builder()?
+			.session()?
 			.with_optimization_level(GraphOptimizationLevel::Level1)?
 			.with_intra_threads(1)?
 			.with_model_from_file(
@@ -263,7 +263,7 @@ fn get_imagenet_labels() -> Result<Vec<String>, OrtDownloadError> {
             .timeout(Duration::from_secs(180)) // 3 minutes
             .call()
             .map_err(Box::new)
-            .map_err(OrtDownloadError::UreqError)?;
+            .map_err(OrtDownloadError::FetchError)?;
 
 		assert!(resp.has("Content-Length"));
 		let len = resp.header("Content-Length").and_then(|s| s.parse::<usize>().ok()).unwrap();

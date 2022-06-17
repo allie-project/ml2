@@ -2,35 +2,34 @@ use std::{io, path::PathBuf};
 
 use thiserror::Error;
 
-use super::sys;
-use super::{char_p_to_string, ort};
+use super::{char_p_to_string, ort, sys};
 
-/// Type alias for the result returned by ORT functions.
+/// Type alias for the Result type returned by ORT functions.
 pub type OrtResult<T> = std::result::Result<T, OrtError>;
 
 #[non_exhaustive]
 #[derive(Error, Debug)]
 pub enum OrtError {
-	#[error("Failed to construct String")]
-	StringConversion(OrtApiError),
+	#[error("Failed to construct Rust String")]
+	FfiStringConversion(OrtApiError),
 	/// An error occurred while creating an ONNX environment.
-	#[error("Failed to create ONNX environment: {0}")]
-	Environment(OrtApiError),
+	#[error("Failed to create ONNX Runtime environment: {0}")]
+	CreateEnvironment(OrtApiError),
 	/// Error occurred when creating ONNX session options.
-	#[error("Failed to create ONNX session options: {0}")]
-	SessionOptions(OrtApiError),
+	#[error("Failed to create ONNX Runtime session options: {0}")]
+	CreateSessionOptions(OrtApiError),
 	/// Error occurred when creating an ONNX session.
-	#[error("Failed to create ONNX session: {0}")]
-	Session(OrtApiError),
+	#[error("Failed to create ONNX Runtime session: {0}")]
+	CreateSession(OrtApiError),
 	/// Error occurred when creating an ONNX allocator.
 	#[error("Failed to get ONNX allocator: {0}")]
-	Allocator(OrtApiError),
+	GetAllocator(OrtApiError),
 	/// Error occurred when counting ONNX session input/output count.
 	#[error("Failed to get input or output count: {0}")]
-	InOutCount(OrtApiError),
+	GetInOutCount(OrtApiError),
 	/// Error occurred when getting ONNX input name.
 	#[error("Failed to get input name: {0}")]
-	InputName(OrtApiError),
+	GetInputName(OrtApiError),
 	/// Error occurred when getting ONNX type information
 	#[error("Failed to get type info: {0}")]
 	GetTypeInfo(OrtApiError),
@@ -39,7 +38,7 @@ pub enum OrtError {
 	CastTypeInfoToTensorInfo(OrtApiError),
 	/// Error occurred when getting tensor elements type
 	#[error("Failed to get tensor element type: {0}")]
-	TensorElementType(OrtApiError),
+	GetTensorElementType(OrtApiError),
 	/// Error occurred when getting ONNX dimensions count
 	#[error("Failed to get dimensions count: {0}")]
 	GetDimensionsCount(OrtApiError),
@@ -60,62 +59,56 @@ pub enum OrtError {
 	FillStringTensor(OrtApiError),
 	/// Error occurred when checking if ONNX tensor was properly initialized
 	#[error("Failed to check if tensor is a tensor or was properly initialized: {0}")]
-	IsTensor(OrtApiError),
+	FailedTensorCheck(OrtApiError),
 	/// Error occurred when getting tensor type and shape
 	#[error("Failed to get tensor type and shape: {0}")]
 	GetTensorTypeAndShape(OrtApiError),
 	/// Error occurred when ONNX inference operation was called
-	#[error("Failed to run: {0}")]
-	Run(OrtApiError),
-	/// Error occurred when extracting data from an ONNX tensor into an C array to be used as an `ndarray::ArrayView`
+	#[error("Failed to run inference on model: {0}")]
+	SessionRun(OrtApiError),
+	/// Error occurred when extracting data from an ONNX tensor into an C array to be used as an `ndarray::ArrayView`.
 	#[error("Failed to get tensor data: {0}")]
 	GetTensorMutableData(OrtApiError),
-	/// Error occurred when downloading a pre-trained ONNX model from the [ONNX Model Zoo](https://github.com/onnx/models)
+	/// Error occurred when downloading a pre-trained ONNX model from the [ONNX Model Zoo](https://github.com/onnx/models).
 	#[error("Failed to download ONNX model: {0}")]
 	DownloadError(#[from] OrtDownloadError),
-	/// Dimensions of input data and ONNX model loaded from file do not match
+	/// Dimensions of input data and the ONNX model do not match.
 	#[error("Dimensions do not match: {0:?}")]
 	NonMatchingDimensions(NonMatchingDimensionsError),
 	/// File does not exist
-	#[error("File {filename:?} does not exist")]
-	FileDoesNotExists {
+	#[error("File `{filename:?}` does not exist")]
+	FileDoesNotExist {
 		/// Path which does not exists
 		filename: PathBuf
 	},
 	/// Path is invalid UTF-8
-	#[error("Path {path:?} cannot be converted to UTF-8")]
+	#[error("Path `{path:?}` cannot be converted to UTF-8")]
 	NonUtf8Path {
 		/// Path with invalid UTF-8
 		path: PathBuf
 	},
 	/// Attempt to build a Rust `CString` from a null pointer
 	#[error("Failed to build CString when original contains null: {0}")]
-	CStringNulError(#[from] std::ffi::NulError),
+	FfiStringNull(#[from] std::ffi::NulError),
 	#[error("{0} pointer should be null")]
 	/// ORT pointer should have been null
 	PointerShouldBeNull(String),
 	/// ORT pointer should not have been null
 	#[error("{0} pointer should not be null")]
 	PointerShouldNotBeNull(String),
-	/// ONNX Model has invalid dimensions.
-	#[error("Invalid dimensions")]
-	InvalidDimensions,
 	/// The runtime type was undefined.
 	#[error("Undefined tensor element type")]
 	UndefinedTensorElementType,
-	/// Error occurred when checking if ONNX tensor was properly initialized
-	#[error("Failed to check if tensor is a tensor or was properly initialized")]
-	IsTensorCheck,
 	/// Could not retrieve model metadata.
 	#[error("Failed to retrieve model metadata: {0}")]
 	GetModelMetadata(OrtApiError)
 }
 
-/// Error used when input dimensions defined in the model and passed from an inference call do not match.
+/// Error used when the input dimensions defined in the model and passed from an inference call do not match.
 #[non_exhaustive]
 #[derive(Error, Debug)]
 pub enum NonMatchingDimensionsError {
-	/// Number of inputs from model does not match number of inputs from inference call
+	/// Number of inputs from model does not match the number of inputs from inference call.
 	#[error(
 		"Non-matching number of inputs: {inference_input_count:?} provided vs {model_input_count:?} for model (inputs: {inference_input:?}, model: {model_input:?})"
 	)]
@@ -130,7 +123,7 @@ pub enum NonMatchingDimensionsError {
 		model_input: Vec<Vec<Option<u32>>>
 	},
 	/// Inputs length from model does not match the expected input from inference call
-	#[error("Different input lengths: Expected input: {model_input:?}, received input: {inference_input:?}")]
+	#[error("Different input lengths; expected input: {model_input:?}, received input: {inference_input:?}")]
 	InputsLength {
 		/// Input dimensions used by inference call
 		inference_input: Vec<Vec<usize>>,
@@ -144,10 +137,10 @@ pub enum NonMatchingDimensionsError {
 #[derive(Error, Debug)]
 pub enum OrtApiError {
 	/// Details about the error.
-	#[error("Error calling ONNX: {0}")]
+	#[error("{0}")]
 	Msg(String),
-	/// Details as reported by the ONNX C API in case the conversion to UTF-8 failed.
-	#[error("Error calling ONNX function; failed to convert the error message to UTF-8")]
+	/// Converting the ONNX error message to UTF-8 failed.
+	#[error("an error occurred, but ml2 failed to convert the error message to UTF-8")]
 	IntoStringError(std::ffi::IntoStringError)
 }
 
@@ -161,7 +154,7 @@ pub enum OrtDownloadError {
 	/// Download error by ureq
 	#[cfg(feature = "onnx-fetch-models")]
 	#[error("Error downloading to file: {0}")]
-	UreqError(#[from] Box<ureq::Error>),
+	FetchError(#[from] Box<ureq::Error>),
 	/// Error getting Content-Length from HTTP GET request.
 	#[error("Error getting Content-Length from HTTP GET")]
 	ContentLengthError,
@@ -203,7 +196,7 @@ impl From<OrtStatusWrapper> for std::result::Result<(), OrtApiError> {
 			match char_p_to_string(raw) {
 				Ok(msg) => Err(OrtApiError::Msg(msg)),
 				Err(err) => match err {
-					OrtError::StringConversion(OrtApiError::IntoStringError(e)) => Err(OrtApiError::IntoStringError(e)),
+					OrtError::FfiStringConversion(OrtApiError::IntoStringError(e)) => Err(OrtApiError::IntoStringError(e)),
 					_ => unreachable!()
 				}
 			}

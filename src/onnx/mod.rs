@@ -12,19 +12,21 @@ use std::{
 	sync::{atomic::AtomicPtr, Arc, Mutex}
 };
 
+pub use environment::Environment;
 pub use error::{OrtApiError, OrtError, OrtResult};
 use lazy_static::lazy_static;
+pub use session::{Session, SessionBuilder};
 
 use self::sys::OnnxEnumInt;
 
-#[macro_export]
-#[doc(hidden)]
 macro_rules! extern_system_fn {
 	($(#[$meta:meta])* fn $($tt:tt)*) => ($(#[$meta])* extern "C" fn $($tt)*);
 	($(#[$meta:meta])* $vis:vis fn $($tt:tt)*) => ($(#[$meta])* $vis extern "C" fn $($tt)*);
 	($(#[$meta:meta])* unsafe fn $($tt:tt)*) => ($(#[$meta])* unsafe extern "C" fn $($tt)*);
 	($(#[$meta:meta])* $vis:vis unsafe fn $($tt:tt)*) => ($(#[$meta])* $vis unsafe extern "C" fn $($tt)*);
 }
+
+pub(crate) use extern_system_fn;
 
 lazy_static! {
 	pub(crate) static ref G_ORT_API: Arc<Mutex<AtomicPtr<sys::OrtApi>>> = {
@@ -101,7 +103,7 @@ pub(crate) fn char_p_to_string(raw: *const i8) -> OrtResult<String> {
 		Ok(string) => Ok(string),
 		Err(e) => Err(OrtApiError::IntoStringError(e))
 	}
-	.map_err(OrtError::StringConversion)
+	.map_err(OrtError::FfiStringConversion)
 }
 
 /// ONNX's logger sends the code location where the log occurred, which will be parsed into this struct.

@@ -503,7 +503,7 @@ impl<C: PartialOrd + Clone + Default, F: Float, D: Data<Elem = F>> PredictInplac
 }
 
 /// A fitted multinomial logistic regression which can make predictions
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MultiFittedLogisticRegression<F: Float, C: PartialOrd + Clone> {
 	intercept: Array1<F>,
 	params: Array2<F>,

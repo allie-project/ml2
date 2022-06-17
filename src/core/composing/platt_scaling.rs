@@ -43,7 +43,7 @@ pub struct Platt<F, O> {
 }
 
 /// Parameters for Platt's Newton method.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlattValidParams<F, O> {
 	maxiter: usize,
 	minstep: F,

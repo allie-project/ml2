@@ -9,7 +9,7 @@ use super::{distance::Distance, heap_elem::MinHeapElem, BuildError, NearestNeigh
 use crate::core::Float;
 
 /// Spatial indexing structure created by [`LinearSearch`](struct.LinearSearch.html)
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LinearSearchIndex<'a, F: Float, D: Distance<F>>(ArrayView2<'a, F>, D);
 
 impl<'a, F: Float, D: Distance<F>> LinearSearchIndex<'a, F, D> {

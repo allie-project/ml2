@@ -11,43 +11,38 @@ use std::{ffi::CString, fmt::Debug, path::Path};
 use ndarray::Array;
 use tracing::{debug, error};
 
-use super::metadata::Metadata;
-#[cfg(feature = "onnx-fetch-models")]
-use crate::onnx::{download::OnnxModel, error::OrtDownloadError};
-use crate::{
+use super::{
+	char_p_to_string,
+	environment::Environment,
+	error::{assert_non_null_pointer, assert_null_pointer, status_to_result, NonMatchingDimensionsError, OrtApiError, OrtError, OrtResult},
 	extern_system_fn,
-	onnx::{
-		char_p_to_string,
-		environment::Environment,
-		error::{assert_non_null_pointer, assert_null_pointer, status_to_result, NonMatchingDimensionsError, OrtApiError, OrtError, OrtResult},
-		memory::MemoryInfo,
-		ort, ortsys, sys,
-		tensor::{ort_owned_tensor::OrtOwnedTensor, IntoTensorElementDataType, OrtTensor, TensorDataToType, TensorElementDataType},
-		AllocatorType, GraphOptimizationLevel, MemType
-	}
+	memory::MemoryInfo,
+	metadata::Metadata,
+	ort, ortsys, sys,
+	tensor::{ort_owned_tensor::OrtOwnedTensor, IntoTensorElementDataType, OrtTensor, TensorDataToType, TensorElementDataType},
+	AllocatorType, GraphOptimizationLevel, MemType
 };
+#[cfg(feature = "onnx-fetch-models")]
+use super::{download::OnnxModel, error::OrtDownloadError};
 
-/// Type used to create a session using the _builder pattern_
+/// Type used to create a session using the _builder pattern_.
 ///
-/// A `SessionBuilder` is created by calling the
-/// [`Environment::new_session_builder()`](../env/struct.Environment.html#method.new_session_builder)
-/// method on the environment.
+/// A `SessionBuilder` is created by calling the [`Environment::session()`] method on the environment.
 ///
-/// Once created, use the different methods to configure the session.
+/// Once created, you can use the different methods to configure the session.
 ///
-/// Once configured, use the
-/// [`SessionBuilder::with_model_from_file()`](../session/struct.SessionBuilder.html#method.with_model_from_file) method
-/// to "commit" the builder configuration into a [`Session`](../session/struct.Session.html).
+/// Once configured, use the [`SessionBuilder::with_model_from_file()`] method to "commit" the builder configuration
+/// into a [`Session`].
 ///
 /// # Example
 ///
 /// ```no_run
 /// # use std::error::Error;
-/// # use ml2::onnx::{environment::Environment, LoggingLevel, GraphOptimizationLevel};
+/// # use ml2::onnx::{Environment, LoggingLevel, GraphOptimizationLevel};
 /// # fn main() -> Result<(), Box<dyn Error>> {
 /// let environment = Environment::builder().with_name("test").with_log_level(LoggingLevel::Verbose).build()?;
 /// let mut session = environment
-/// 	.new_session_builder()?
+/// 	.session()?
 /// 	.with_optimization_level(GraphOptimizationLevel::Level1)?
 /// 	.with_intra_threads(1)?
 /// 	.with_model_from_file("squeezenet.onnx")?;
@@ -78,7 +73,7 @@ impl<'a> Drop for SessionBuilder<'a> {
 impl<'a> SessionBuilder<'a> {
 	pub(crate) fn new(env: &'a Environment) -> OrtResult<SessionBuilder<'a>> {
 		let mut session_options_ptr: *mut sys::OrtSessionOptions = std::ptr::null_mut();
-		ortsys![unsafe CreateSessionOptions(&mut session_options_ptr) -> OrtError::SessionOptions; nonNull(session_options_ptr)];
+		ortsys![unsafe CreateSessionOptions(&mut session_options_ptr) -> OrtError::CreateSessionOptions; nonNull(session_options_ptr)];
 
 		Ok(SessionBuilder {
 			env,
@@ -94,11 +89,11 @@ impl<'a> SessionBuilder<'a> {
 	/// variable.
 	///
 	/// For configuring the number of threads used when the session execution mode is set to `Parallel`, see
-	/// [`SessionBuilder::with_inter_threads`].
+	/// [`SessionBuilder::with_inter_threads()`].
 	pub fn with_intra_threads(self, num_threads: i16) -> OrtResult<SessionBuilder<'a>> {
 		// We use a u16 in the builder to cover the 16-bits positive values of a i32.
 		let num_threads = num_threads as i32;
-		ortsys![unsafe SetIntraOpNumThreads(self.session_options_ptr, num_threads) -> OrtError::SessionOptions];
+		ortsys![unsafe SetIntraOpNumThreads(self.session_options_ptr, num_threads) -> OrtError::CreateSessionOptions];
 		Ok(self)
 	}
 
@@ -108,11 +103,11 @@ impl<'a> SessionBuilder<'a> {
 	/// This has no effect when the session execution mode is set to `Sequential`.
 	///
 	/// For configuring the number of threads used to parallelize the execution within nodes, see
-	/// [`SessionBuilder::with_intra_threads`].
+	/// [`SessionBuilder::with_intra_threads()`].
 	pub fn with_inter_threads(self, num_threads: i16) -> OrtResult<SessionBuilder<'a>> {
 		// We use a u16 in the builder to cover the 16-bits positive values of a i32.
 		let num_threads = num_threads as i32;
-		ortsys![unsafe SetInterOpNumThreads(self.session_options_ptr, num_threads) -> OrtError::SessionOptions];
+		ortsys![unsafe SetInterOpNumThreads(self.session_options_ptr, num_threads) -> OrtError::CreateSessionOptions];
 		Ok(self)
 	}
 
@@ -120,40 +115,37 @@ impl<'a> SessionBuilder<'a> {
 	///
 	/// Parallel execution can improve performance for models with many branches, at the cost of higher memory usage.
 	/// You can configure the amount of threads used to parallelize the execution of the graph via
-	/// [`SessionBuilder::with_inter_threads`].
+	/// [`SessionBuilder::with_inter_threads()`].
 	pub fn with_parallel_execution(self, parallel_execution: bool) -> OrtResult<SessionBuilder<'a>> {
 		let execution_mode = if parallel_execution {
 			sys::ExecutionMode::ORT_PARALLEL
 		} else {
 			sys::ExecutionMode::ORT_SEQUENTIAL
 		};
-		ortsys![unsafe SetSessionExecutionMode(self.session_options_ptr, execution_mode) -> OrtError::SessionOptions];
+		ortsys![unsafe SetSessionExecutionMode(self.session_options_ptr, execution_mode) -> OrtError::CreateSessionOptions];
 		Ok(self)
 	}
 
-	/// Set the session's optimization level
+	/// Set the session's optimization level. See [`GraphOptimizationLevel`] for more information on the different
+	/// optimization levels.
 	pub fn with_optimization_level(self, opt_level: GraphOptimizationLevel) -> OrtResult<SessionBuilder<'a>> {
-		ortsys![unsafe SetSessionGraphOptimizationLevel(self.session_options_ptr, opt_level.into()) -> OrtError::SessionOptions];
+		ortsys![unsafe SetSessionGraphOptimizationLevel(self.session_options_ptr, opt_level.into()) -> OrtError::CreateSessionOptions];
 		Ok(self)
 	}
 
-	/// Set the session's allocator
-	///
-	/// Defaults to [`AllocatorType::Arena`](../enum.AllocatorType.html#variant.Arena)
+	/// Set the session's allocator. Defaults to [`AllocatorType::Arena`].
 	pub fn with_allocator(mut self, allocator: AllocatorType) -> OrtResult<SessionBuilder<'a>> {
 		self.allocator = allocator;
 		Ok(self)
 	}
 
-	/// Set the session's memory type
-	///
-	/// Defaults to [`MemType::Default`](../enum.MemType.html#variant.Default)
+	/// Set the session's memory type. Defaults to [`MemType::Default`].
 	pub fn with_memory_type(mut self, memory_type: MemType) -> OrtResult<SessionBuilder<'a>> {
 		self.memory_type = memory_type;
 		Ok(self)
 	}
 
-	/// Download an ONNX pre-trained model from the [ONNX Model Zoo](https://github.com/onnx/models) and commit the session
+	/// Downloads a pre-trained ONNX model from the [ONNX Model Zoo](https://github.com/onnx/models) and builds the session.
 	#[cfg(feature = "onnx-fetch-models")]
 	pub fn with_model_downloaded<M>(self, model: M) -> OrtResult<Session<'a>>
 	where
@@ -172,20 +164,19 @@ impl<'a> SessionBuilder<'a> {
 	// TODO: Add all functions changing the options.
 	//       See all OrtApi methods taking a `options: *mut OrtSessionOptions`.
 
-	/// Load an ONNX graph from a file and commit the session
+	/// Loads an ONNX model from a file and builds the session.
 	pub fn with_model_from_file<P>(self, model_filepath_ref: P) -> OrtResult<Session<'a>>
 	where
 		P: AsRef<Path> + 'a
 	{
 		let model_filepath = model_filepath_ref.as_ref();
-
 		if !model_filepath.exists() {
-			return Err(OrtError::FileDoesNotExists {
+			return Err(OrtError::FileDoesNotExist {
 				filename: model_filepath.to_path_buf()
 			});
 		}
 
-		// Build an OsString than a vector of bytes to pass to C
+		// Build an OsString, then a vector of bytes to pass to C
 		let model_path = std::ffi::OsString::from(model_filepath);
 		#[cfg(target_family = "windows")]
 		let model_path: Vec<u16> = model_path
@@ -203,10 +194,10 @@ impl<'a> SessionBuilder<'a> {
 		let env_ptr: *const sys::OrtEnv = self.env.env_ptr();
 
 		let mut session_ptr: *mut sys::OrtSession = std::ptr::null_mut();
-		ortsys![unsafe CreateSession(env_ptr, model_path.as_ptr(), self.session_options_ptr, &mut session_ptr) -> OrtError::Session; nonNull(session_ptr)];
+		ortsys![unsafe CreateSession(env_ptr, model_path.as_ptr(), self.session_options_ptr, &mut session_ptr) -> OrtError::CreateSession; nonNull(session_ptr)];
 
 		let mut allocator_ptr: *mut sys::OrtAllocator = std::ptr::null_mut();
-		ortsys![unsafe GetAllocatorWithDefaultOptions(&mut allocator_ptr) -> OrtError::Allocator; nonNull(allocator_ptr)];
+		ortsys![unsafe GetAllocatorWithDefaultOptions(&mut allocator_ptr) -> OrtError::GetAllocator; nonNull(allocator_ptr)];
 
 		let memory_info = MemoryInfo::new(AllocatorType::Arena, MemType::Default)?;
 
@@ -246,12 +237,12 @@ impl<'a> SessionBuilder<'a> {
 		let model_data = model_bytes.as_ptr() as *const std::ffi::c_void;
 		let model_data_length = model_bytes.len();
 		ortsys![
-			unsafe CreateSessionFromArray(env_ptr, model_data, model_data_length, self.session_options_ptr, &mut session_ptr) -> OrtError::Session;
+			unsafe CreateSessionFromArray(env_ptr, model_data, model_data_length, self.session_options_ptr, &mut session_ptr) -> OrtError::CreateSession;
 			nonNull(session_ptr)
 		];
 
 		let mut allocator_ptr: *mut sys::OrtAllocator = std::ptr::null_mut();
-		ortsys![unsafe GetAllocatorWithDefaultOptions(&mut allocator_ptr) -> OrtError::Allocator; nonNull(allocator_ptr)];
+		ortsys![unsafe GetAllocatorWithDefaultOptions(&mut allocator_ptr) -> OrtError::GetAllocator; nonNull(allocator_ptr)];
 
 		let memory_info = MemoryInfo::new(AllocatorType::Arena, MemType::Default)?;
 
@@ -410,7 +401,7 @@ impl<'a> Session<'a> {
 				output_names_ptr.as_ptr(),
 				output_names_ptr.len(),
 				output_tensor_extractors_ptrs.as_mut_ptr()
-			) -> OrtError::Run
+			) -> OrtError::SessionRun
 		];
 
 		let memory_info_ref = &self.memory_info;
@@ -428,7 +419,7 @@ impl<'a> Session<'a> {
 				assert_non_null_pointer(tensor_ptr, "Run")?;
 
 				let mut is_tensor = 0;
-				ortsys![unsafe IsTensor(tensor_ptr, &mut is_tensor) -> OrtError::IsTensor];
+				ortsys![unsafe IsTensor(tensor_ptr, &mut is_tensor) -> OrtError::FailedTensorCheck];
 				assert_eq!(is_tensor, 1);
 
 				let array_view = TOut::extract_array(ndarray::IxDyn(&dims), tensor_ptr)?;
@@ -529,7 +520,7 @@ unsafe fn get_tensor_dimensions(tensor_info_ptr: *const sys::OrtTensorTypeAndSha
 
 unsafe fn extract_data_type(tensor_info_ptr: *const sys::OrtTensorTypeAndShapeInfo) -> OrtResult<TensorElementDataType> {
 	let mut type_sys = sys::ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED;
-	ortsys![GetTensorElementType(tensor_info_ptr, &mut type_sys) -> OrtError::TensorElementType];
+	ortsys![GetTensorElementType(tensor_info_ptr, &mut type_sys) -> OrtError::GetTensorElementType];
 	assert_ne!(type_sys, sys::ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED);
 	// This transmute should be safe since its value is read from GetTensorElementType, which we must trust
 	Ok(std::mem::transmute(type_sys))
@@ -572,11 +563,11 @@ mod dangerous {
 	) -> OrtResult<usize> {
 		let mut num_nodes: usize = 0;
 		let status = unsafe { f(session_ptr, &mut num_nodes) };
-		status_to_result(status).map_err(OrtError::InOutCount)?;
+		status_to_result(status).map_err(OrtError::GetInOutCount)?;
 		assert_null_pointer(status, "SessionStatus")?;
 		(num_nodes != 0)
 			.then(|| ())
-			.ok_or_else(|| OrtError::InOutCount(OrtApiError::Msg("No nodes in model".to_owned())))?;
+			.ok_or_else(|| OrtError::GetInOutCount(OrtApiError::Msg("No nodes in model".to_owned())))?;
 		Ok(num_nodes)
 	}
 
@@ -604,7 +595,7 @@ mod dangerous {
 		let mut name_bytes: *mut i8 = std::ptr::null_mut();
 
 		let status = unsafe { f(session_ptr, i, allocator_ptr, &mut name_bytes) };
-		status_to_result(status).map_err(OrtError::InputName)?;
+		status_to_result(status).map_err(OrtError::GetInputName)?;
 		assert_non_null_pointer(name_bytes, "InputName")?;
 
 		let name = char_p_to_string(name_bytes)?;

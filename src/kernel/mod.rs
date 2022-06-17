@@ -235,7 +235,7 @@ impl<F: Float, K1: Inner<Elem = F>, K2: Inner<Elem = F>> Records for KernelBase<
 /// - Linear: `d(x, x') = <x, x'>`
 /// - Polynomial(constant, degree):  `d(x, x') = (<x, x'> + costant)^(degree)`
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize), serde(crate = "serde_crate"))]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum KernelMethod<F> {
 	/// Gaussian(eps): exp(-norm(x - x')/eps)
 	Gaussian(F),

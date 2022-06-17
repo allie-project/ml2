@@ -77,7 +77,7 @@ where
 				];
 
 				let mut is_tensor = 0;
-				ortsys![unsafe IsTensor(tensor_ptr, &mut is_tensor) -> OrtError::IsTensor];
+				ortsys![unsafe IsTensor(tensor_ptr, &mut is_tensor) -> OrtError::FailedTensorCheck];
 				assert_eq!(is_tensor, 1);
 			}
 			#[cfg(feature = "half")]
@@ -100,7 +100,7 @@ where
 				];
 
 				let mut is_tensor = 0;
-				ortsys![unsafe IsTensor(tensor_ptr, &mut is_tensor) -> OrtError::IsTensor];
+				ortsys![unsafe IsTensor(tensor_ptr, &mut is_tensor) -> OrtError::FailedTensorCheck];
 				assert_eq!(is_tensor, 1);
 			}
 			TensorElementDataType::String => {
@@ -118,7 +118,7 @@ where
 						ffi::CString::new(slice)
 					})
 					.collect::<std::result::Result<Vec<_>, _>>()
-					.map_err(OrtError::CStringNulError)?;
+					.map_err(OrtError::FfiStringNull)?;
 
 				let string_pointers = null_terminated_copies.iter().map(|cstring| cstring.as_ptr()).collect::<Vec<_>>();
 
@@ -256,7 +256,7 @@ mod tests {
 	fn ort_default_allocator() -> OrtResult<*mut sys::OrtAllocator> {
 		let mut allocator_ptr: *mut sys::OrtAllocator = std::ptr::null_mut();
 		// this default non-arena allocator doesn't need to be deallocated
-		ortsys![unsafe GetAllocatorWithDefaultOptions(&mut allocator_ptr) -> OrtError::Allocator];
+		ortsys![unsafe GetAllocatorWithDefaultOptions(&mut allocator_ptr) -> OrtError::GetAllocator];
 		Ok(allocator_ptr)
 	}
 }

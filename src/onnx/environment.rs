@@ -27,23 +27,21 @@ struct EnvironmentSingleton {
 	env_ptr: AtomicPtr<sys::OrtEnv>
 }
 
-/// An [`Environment`](session/struct.Environment.html) is the main entry point of the ONNX Runtime.
+/// An [`Environment`] is the main entry point of the ONNX Runtime.
 ///
 /// Only one ONNX environment can be created per process. A singleton (through `lazy_static!()`) is used to enforce
 /// this.
 ///
-/// Once an environment is created, a [`Session`](../session/struct.Session.html)
-/// can be obtained from it.
+/// Once an environment is created, a [`super::Session`] can be obtained from it.
 ///
-/// **NOTE**: While the [`Environment`](environment/struct.Environment.html) constructor takes a `name` parameter
-/// to name the environment, only the first name will be considered if many environments
-/// are created.
+/// **NOTE**: While the [`Environment`] constructor takes a `name` parameter to name the environment, only the first
+/// name will be considered if many environments are created.
 ///
 /// # Example
 ///
 /// ```no_run
 /// # use std::error::Error;
-/// # use ml2::onnx::{environment::Environment, LoggingLevel};
+/// # use ml2::onnx::{Environment, LoggingLevel};
 /// # fn main() -> Result<(), Box<dyn Error>> {
 /// let environment = Environment::builder().with_name("test").with_log_level(LoggingLevel::Verbose).build()?;
 /// # Ok(())
@@ -56,7 +54,7 @@ pub struct Environment {
 
 impl Environment {
 	/// Create a new environment builder using default values
-	/// (name: `default`, log level: [LoggingLevel::Warning](../enum.LoggingLevel.html#variant.Warning))
+	/// (name: `default`, log level: [`LoggingLevel::Warning`])
 	pub fn builder() -> EnvBuilder {
 		EnvBuilder {
 			name: "default".into(),
@@ -94,7 +92,7 @@ impl Environment {
 
 			let create_env_with_custom_logger = ortsys![CreateEnvWithCustomLogger];
 			let status = unsafe { create_env_with_custom_logger(logging_function, logger_param, log_level.into(), cname.as_ptr(), &mut env_ptr) };
-			status_to_result(status).map_err(OrtError::Environment)?;
+			status_to_result(status).map_err(OrtError::CreateEnvironment)?;
 
 			debug!(env_ptr = format!("{:?}", env_ptr).as_str(), "Environment created.");
 
@@ -125,7 +123,7 @@ impl Environment {
 
 	/// Create a new [`SessionBuilder`](../session/struct.SessionBuilder.html)
 	/// used to create a new ONNX session.
-	pub fn new_session_builder(&self) -> OrtResult<SessionBuilder> {
+	pub fn session(&self) -> OrtResult<SessionBuilder> {
 		SessionBuilder::new(self)
 	}
 }
@@ -161,14 +159,16 @@ impl Drop for Environment {
 	}
 }
 
-/// Struct used to build an environment [`Environment`](environment/struct.Environment.html)
+/// Struct used to build an environment [`Environment`].
 ///
-/// This is the crate's main entry point. An environment _must_ be created
-/// as the first step. An [`Environment`](environment/struct.Environment.html) can only be built
-/// using `EnvBuilder` to configure it.
+/// This is ONNX Runtime's main entry point. An environment _must_ be created as the first step. An [`Environment`] can
+/// only be built using `EnvBuilder` to configure it.
 ///
-/// **NOTE**: If the same configuration method (for example [`with_name()`](struct.EnvBuilder.html#method.with_name))
-/// is called multiple times, the last value will have precedence.
+/// Libraries using ml2 should **not** create an environment, as only one is allowed per process. Instead, allow the
+/// user to pass their own environment to the library.
+///
+/// **NOTE**: If the same configuration method (for example [`EnvBuilder::with_name()`] is called multiple times, the
+/// last value will have precedence.
 pub struct EnvBuilder {
 	name: String,
 	log_level: LoggingLevel
@@ -177,10 +177,9 @@ pub struct EnvBuilder {
 impl EnvBuilder {
 	/// Configure the environment with a given name
 	///
-	/// **NOTE**: Since ONNX can only define one environment per process,
-	/// creating multiple environments using multiple `EnvBuilder` will
-	/// end up re-using the same environment internally; a new one will _not_
-	/// be created. New parameters will be ignored.
+	/// **NOTE**: Since ONNX can only define one environment per process, creating multiple environments using multiple
+	/// [`EnvBuilder`]s will end up re-using the same environment internally; a new one will _not_ be created. New
+	/// parameters will be ignored.
 	pub fn with_name<S>(mut self, name: S) -> EnvBuilder
 	where
 		S: Into<String>
@@ -191,16 +190,15 @@ impl EnvBuilder {
 
 	/// Configure the environment with a given log level
 	///
-	/// **NOTE**: Since ONNX can only define one environment per process,
-	/// creating multiple environments using multiple `EnvBuilder` will
-	/// end up re-using the same environment internally; a new one will _not_
-	/// be created. New parameters will be ignored.
+	/// **NOTE**: Since ONNX can only define one environment per process, creating multiple environments using multiple
+	/// [`EnvBuilder`]s will end up re-using the same environment internally; a new one will _not_ be created. New
+	/// parameters will be ignored.
 	pub fn with_log_level(mut self, log_level: LoggingLevel) -> EnvBuilder {
 		self.log_level = log_level;
 		self
 	}
 
-	/// Commit the configuration to a new [`Environment`](environment/struct.Environment.html)
+	/// Commit the configuration to a new [`Environment`].
 	pub fn build(self) -> OrtResult<Environment> {
 		Environment::new(self.name, self.log_level)
 	}
@@ -219,10 +217,6 @@ mod tests {
 			Arc::strong_count(self) >= 2
 		}
 
-		// fn name(&self) -> String {
-		//     *self.lock().unwrap().name.clone()
-		// }
-
 		fn env_ptr(&self) -> *const sys::OrtEnv {
 			*self.lock().unwrap().env_ptr.get_mut()
 		}
@@ -237,9 +231,6 @@ mod tests {
 	}
 
 	impl CONCURRENT_TEST_RUN {
-		// fn run(&self) -> std::sync::RwLockReadGuard<()> {
-		//     self.lock.read().unwrap()
-		// }
 		fn single_test_run(&self) -> RwLockWriteGuard<()> {
 			self.lock.write().unwrap()
 		}

@@ -2,26 +2,17 @@
 //!
 //! Two main types of tensors are available.
 //!
-//! The first one, [`Tensor`](struct.Tensor.html),
-//! is an _owned_ tensor that is backed by [`ndarray`](https://crates.io/crates/ndarray).
+//! The first one, [`OrtTensor`], is an _owned_ tensor that is backed by [`ndarray`](https://crates.io/crates/ndarray).
 //! This kind of tensor is used to pass input data for the inference.
 //!
-//! The second one, [`OrtOwnedTensor`](struct.OrtOwnedTensor.html), is used
-//! internally to pass to the ONNX Runtime inference execution to place
-//! its output values. It is built using a [`OrtOwnedTensorExtractor`](struct.OrtOwnedTensorExtractor.html)
-//! following the builder pattern.
+//! The second one, [`OrtOwnedTensor`], is used internally to pass to the ONNX Runtime inference execution to place its
+//! output values. Once "extracted" from the runtime environment, this tensor will contain an [`ndarray::ArrayView`]
+//! containing _a view_ of the data. When going out of scope, this tensor will free the required memory on the C side.
 //!
-//! Once "extracted" from the runtime environment, this tensor will contain an
-//! [`ndarray::ArrayView`](https://docs.rs/ndarray/latest/ndarray/type.ArrayView.html)
-//! containing _a view_ of the data. When going out of scope, this tensor will free the required
-//! memory on the C side.
-//!
-//! **NOTE**: Tensors are not meant to be built directly. When performing inference,
-//! the [`Session::run()`](../session/struct.Session.html#method.run) method takes
-//! an `ndarray::Array` as input (taking ownership of it) and will convert it internally
-//! to a [`Tensor`](struct.Tensor.html). After inference, a [`OrtOwnedTensor`](struct.OrtOwnedTensor.html)
-//! will be returned by the method which can be derefed into its internal
-//! [`ndarray::ArrayView`](https://docs.rs/ndarray/latest/ndarray/type.ArrayView.html).
+//! **NOTE**: Tensors are not meant to be created directly. When performing inference, the [`Session::run`] method takes
+//! an `ndarray::Array` as input (taking ownership of it) and will convert it internally to an [`OrtTensor`]. After
+//! inference, a [`OrtOwnedTensor`] will be returned by the method which can be derefed into its internal
+//! [`ndarray::ArrayView`].
 
 pub mod ndarray_tensor;
 pub mod ort_owned_tensor;
@@ -148,10 +139,10 @@ impl_type_trait!(half::bf16, Bfloat16);
 
 /// Adapter for common Rust string types to ONNX strings.
 ///
-/// It should be easy to use both `String` and `&str` as [TensorElementDataType::String] data, but
-/// we can't define an automatic implementation for anything that implements `AsRef<str>` as it
+/// It should be easy to use both [`String`] and `&str` as [TensorElementDataType::String] data, but
+/// we can't define an automatic implementation for anything that implements [`AsRef<str>`] as it
 /// would conflict with the implementations of [IntoTensorElementDataType] for primitive numeric
-/// types (which might implement `AsRef<str>` at some point in the future).
+/// types (which might implement [`AsRef<str>`] at some point in the future).
 pub trait Utf8Data {
 	fn utf8_bytes(&self) -> &[u8];
 }
@@ -189,7 +180,7 @@ pub trait TensorDataToType: Sized + fmt::Debug + Clone {
 		D: ndarray::Dimension;
 }
 
-/// Implements `TensorDataToType` for primitives which can use `GetTensorMutableData`.
+/// Implements [`TensorDataToType`] for primitives which can use `GetTensorMutableData`.
 macro_rules! impl_prim_type_from_ort_trait {
 	($type_: ty, $variant: ident) => {
 		impl TensorDataToType for $type_ {
@@ -225,6 +216,10 @@ where
 	Ok(array_view)
 }
 
+#[cfg(feature = "half")]
+impl_prim_type_from_ort_trait!(half::f16, Float16);
+#[cfg(feature = "half")]
+impl_prim_type_from_ort_trait!(half::bf16, Bfloat16);
 impl_prim_type_from_ort_trait!(f32, Float32);
 impl_prim_type_from_ort_trait!(f64, Float64);
 impl_prim_type_from_ort_trait!(u8, Uint8);
@@ -235,3 +230,4 @@ impl_prim_type_from_ort_trait!(i8, Int8);
 impl_prim_type_from_ort_trait!(i16, Int16);
 impl_prim_type_from_ort_trait!(i32, Int32);
 impl_prim_type_from_ort_trait!(i64, Int64);
+impl_prim_type_from_ort_trait!(bool, Bool);

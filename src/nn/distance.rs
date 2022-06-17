@@ -79,7 +79,7 @@ impl<F: Float> Distance<F> for LInfDist {
 }
 
 /// L-p or [Minkowsky](https://en.wikipedia.org/wiki/Minkowski_distance) distance
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LpDist<F: Float>(F);
 impl<F: Float> Distance<F> for LpDist<F> {
 	#[inline]
