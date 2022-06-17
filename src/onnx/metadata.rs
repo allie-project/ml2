@@ -15,7 +15,7 @@ impl Metadata {
 	}
 
 	pub fn description(&self) -> OrtResult<String> {
-		let mut str_bytes: *mut i8 = std::ptr::null_mut();
+		let mut str_bytes: *mut c_char = std::ptr::null_mut();
 		ortsys![unsafe ModelMetadataGetDescription(self.metadata_ptr, self.allocator_ptr, &mut str_bytes) -> OrtError::GetAllocator; nonNull(str_bytes)];
 
 		let value = char_p_to_string(str_bytes)?;
@@ -24,7 +24,7 @@ impl Metadata {
 	}
 
 	pub fn producer(&self) -> OrtResult<String> {
-		let mut str_bytes: *mut i8 = std::ptr::null_mut();
+		let mut str_bytes: *mut c_char = std::ptr::null_mut();
 		ortsys![unsafe ModelMetadataGetProducerName(self.metadata_ptr, self.allocator_ptr, &mut str_bytes) -> OrtError::GetAllocator; nonNull(str_bytes)];
 
 		let value = char_p_to_string(str_bytes)?;
@@ -33,7 +33,7 @@ impl Metadata {
 	}
 
 	pub fn name(&self) -> OrtResult<String> {
-		let mut str_bytes: *mut i8 = std::ptr::null_mut();
+		let mut str_bytes: *mut c_char = std::ptr::null_mut();
 		ortsys![unsafe ModelMetadataGetGraphName(self.metadata_ptr, self.allocator_ptr, &mut str_bytes) -> OrtError::GetAllocator; nonNull(str_bytes)];
 
 		let value = char_p_to_string(str_bytes)?;

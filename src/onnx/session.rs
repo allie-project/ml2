@@ -6,7 +6,7 @@ use std::env;
 use std::os::unix::ffi::OsStrExt;
 #[cfg(target_family = "windows")]
 use std::os::windows::ffi::OsStrExt;
-use std::{ffi::CString, fmt::Debug, path::Path};
+use std::{ffi::CString, fmt::Debug, os::raw::c_char, path::Path};
 
 use ndarray::Array;
 use tracing::{debug, error};
@@ -361,12 +361,12 @@ impl<'a> Session<'a> {
 
 		// Build arguments to Run()
 
-		let input_names_ptr: Vec<*const i8> = self
+		let input_names_ptr: Vec<*const c_char> = self
 			.inputs
 			.iter()
 			.map(|input| input.name.clone())
 			.map(|n| CString::new(n).unwrap())
-			.map(|n| n.into_raw() as *const i8)
+			.map(|n| n.into_raw() as *const c_char)
 			.collect();
 
 		let output_names_cstring: Vec<CString> = self
@@ -375,7 +375,7 @@ impl<'a> Session<'a> {
 			.map(|output| output.name.clone())
 			.map(|n| CString::new(n).unwrap())
 			.collect();
-		let output_names_ptr: Vec<*const i8> = output_names_cstring.iter().map(|n| n.as_ptr() as *const i8).collect();
+		let output_names_ptr: Vec<*const c_char> = output_names_cstring.iter().map(|n| n.as_ptr() as *const c_char).collect();
 
 		let mut output_tensor_extractors_ptrs: Vec<*mut sys::OrtValue> = vec![std::ptr::null_mut(); self.outputs.len()];
 
@@ -432,8 +432,8 @@ impl<'a> Session<'a> {
 		let cstrings: OrtResult<Vec<CString>> = input_names_ptr
 			.into_iter()
 			.map(|p| {
-				assert_non_null_pointer(p, "i8 for CString")?;
-				unsafe { Ok(CString::from_raw(p as *mut i8)) }
+				assert_non_null_pointer(p, "c_char for CString")?;
+				unsafe { Ok(CString::from_raw(p as *mut c_char)) }
 			})
 			.collect();
 		cstrings?;
@@ -586,13 +586,13 @@ mod dangerous {
 			*const sys::OrtSession,
 			usize,
 			*mut sys::OrtAllocator,
-			*mut *mut i8,
+			*mut *mut c_char,
 		) -> *mut sys::OrtStatus },
 		session_ptr: *mut sys::OrtSession,
 		allocator_ptr: *mut sys::OrtAllocator,
 		i: usize
 	) -> OrtResult<String> {
-		let mut name_bytes: *mut i8 = std::ptr::null_mut();
+		let mut name_bytes: *mut c_char = std::ptr::null_mut();
 
 		let status = unsafe { f(session_ptr, i, allocator_ptr, &mut name_bytes) };
 		status_to_result(status).map_err(OrtError::GetInputName)?;

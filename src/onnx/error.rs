@@ -192,7 +192,7 @@ impl From<OrtStatusWrapper> for std::result::Result<(), OrtApiError> {
 		if status.0.is_null() {
 			Ok(())
 		} else {
-			let raw: *const i8 = unsafe { ort().GetErrorMessage.unwrap()(status.0) };
+			let raw: *const std::os::raw::c_char = unsafe { ort().GetErrorMessage.unwrap()(status.0) };
 			match char_p_to_string(raw) {
 				Ok(msg) => Err(OrtApiError::Msg(msg)),
 				Err(err) => match err {

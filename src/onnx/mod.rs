@@ -9,6 +9,7 @@ pub mod tensor;
 
 use std::{
 	ffi::CStr,
+	os::raw::c_char,
 	sync::{atomic::AtomicPtr, Arc, Mutex}
 };
 
@@ -97,8 +98,8 @@ macro_rules! ortfree {
 pub(crate) use ortfree;
 pub(crate) use ortsys;
 
-pub(crate) fn char_p_to_string(raw: *const i8) -> OrtResult<String> {
-	let c_string = unsafe { std::ffi::CStr::from_ptr(raw as *mut i8).to_owned() };
+pub(crate) fn char_p_to_string(raw: *const c_char) -> OrtResult<String> {
+	let c_string = unsafe { std::ffi::CStr::from_ptr(raw as *mut c_char).to_owned() };
 	match c_string.into_string() {
 		Ok(string) => Ok(string),
 		Err(e) => Err(OrtApiError::IntoStringError(e))
@@ -129,7 +130,7 @@ impl<'a> From<&'a str> for CodeLocation<'a> {
 
 extern_system_fn! {
 	/// Callback from C that will handle ONNX logging, forwarding ONNX's logs to the `tracing` crate.
-	pub(crate) fn custom_logger(_params: *mut std::ffi::c_void, severity: sys::OrtLoggingLevel, category: *const i8, log_id: *const i8, code_location: *const i8, message: *const i8) {
+	pub(crate) fn custom_logger(_params: *mut std::ffi::c_void, severity: sys::OrtLoggingLevel, category: *const c_char, log_id: *const c_char, code_location: *const c_char, message: *const c_char) {
 		use tracing::{span, Level, trace, debug, warn, info, error};
 
 		let log_level = match severity {
