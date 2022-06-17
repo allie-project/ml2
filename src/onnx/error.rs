@@ -6,7 +6,7 @@ use super::sys;
 use super::{char_p_to_string, ort};
 
 /// Type alias for the result returned by ORT functions.
-pub type Result<T> = std::result::Result<T, OrtError>;
+pub type OrtResult<T> = std::result::Result<T, OrtError>;
 
 #[non_exhaustive]
 #[derive(Error, Debug)]
@@ -186,11 +186,11 @@ impl From<*mut sys::OrtStatus> for OrtStatusWrapper {
 	}
 }
 
-pub(crate) fn assert_null_pointer<T>(ptr: *const T, name: &str) -> Result<()> {
+pub(crate) fn assert_null_pointer<T>(ptr: *const T, name: &str) -> OrtResult<()> {
 	ptr.is_null().then(|| ()).ok_or_else(|| OrtError::PointerShouldBeNull(name.to_owned()))
 }
 
-pub(crate) fn assert_non_null_pointer<T>(ptr: *const T, name: &str) -> Result<()> {
+pub(crate) fn assert_non_null_pointer<T>(ptr: *const T, name: &str) -> OrtResult<()> {
 	(!ptr.is_null()).then(|| ()).ok_or_else(|| OrtError::PointerShouldBeNull(name.to_owned()))
 }
 
@@ -220,14 +220,4 @@ impl Drop for OrtStatusWrapper {
 pub(crate) fn status_to_result(status: *mut sys::OrtStatus) -> std::result::Result<(), OrtApiError> {
 	let status_wrapper: OrtStatusWrapper = status.into();
 	status_wrapper.into()
-}
-
-/// A wrapper around an OrtApi function that maps the status code into an [`OrtApiError`].
-///
-/// [`OrtApiError`]: enum.OrtApiError.html
-pub(crate) unsafe fn call_ort<F>(mut f: F) -> std::result::Result<(), OrtApiError>
-where
-	F: FnMut(sys::OrtApi) -> *mut sys::OrtStatus
-{
-	status_to_result(f(ort()))
 }

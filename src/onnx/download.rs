@@ -9,7 +9,7 @@ use std::{
 use tracing::info;
 
 #[cfg(feature = "onnx-fetch-models")]
-use crate::onnx::error::{OrtDownloadError, Result};
+use crate::onnx::error::{OrtDownloadError, OrtResult};
 
 pub mod language;
 pub mod vision;
@@ -39,7 +39,7 @@ impl ModelUrl for OnnxModel {
 impl OnnxModel {
 	#[cfg(feature = "onnx-fetch-models")]
 	#[tracing::instrument]
-	pub(crate) fn download_to<P>(&self, download_dir: P) -> Result<PathBuf>
+	pub(crate) fn download_to<P>(&self, download_dir: P) -> OrtResult<PathBuf>
 	where
 		P: AsRef<Path> + std::fmt::Debug
 	{

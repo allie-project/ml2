@@ -33,7 +33,7 @@ pub use ort_owned_tensor::OrtOwnedTensor;
 pub use ort_tensor::OrtTensor;
 
 use super::{
-	error::assert_non_null_pointer,
+	ortsys,
 	sys::{self as sys, OnnxEnumInt},
 	OrtError, OrtResult
 };
@@ -219,8 +219,7 @@ where
 	let mut output_array_ptr: *mut T = ptr::null_mut();
 	let output_array_ptr_ptr: *mut *mut T = &mut output_array_ptr;
 	let output_array_ptr_ptr_void: *mut *mut std::ffi::c_void = output_array_ptr_ptr as *mut *mut std::ffi::c_void;
-	unsafe { super::error::call_ort(|ort| ort.GetTensorMutableData.unwrap()(tensor, output_array_ptr_ptr_void)) }.map_err(OrtError::GetTensorMutableData)?;
-	assert_non_null_pointer(output_array_ptr, "GetTensorMutableData")?;
+	ortsys![unsafe GetTensorMutableData(tensor, output_array_ptr_ptr_void) -> OrtError::GetTensorMutableData; nonNull(output_array_ptr)];
 
 	let array_view = unsafe { ndarray::ArrayView::from_shape_ptr(shape, output_array_ptr) };
 	Ok(array_view)

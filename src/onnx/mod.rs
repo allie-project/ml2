@@ -12,7 +12,7 @@ use std::{
 	sync::{atomic::AtomicPtr, Arc, Mutex}
 };
 
-pub use error::{OrtApiError, OrtError, Result as OrtResult};
+pub use error::{OrtApiError, OrtError, OrtResult};
 use lazy_static::lazy_static;
 
 use self::sys::OnnxEnumInt;
@@ -45,6 +45,55 @@ pub fn ort() -> sys::OrtApi {
 
 	unsafe { *api_ptr_mut }
 }
+
+macro_rules! ortsys {
+	($method:tt) => {
+		$crate::onnx::ort().$method.unwrap()
+	};
+	(unsafe $method:tt) => {
+		unsafe { $crate::onnx::ort().$method.unwrap() }
+	};
+	($method:tt($($n:expr),+ $(,)?)) => {
+		$crate::onnx::ort().$method.unwrap()($($n),+)
+	};
+	(unsafe $method:tt($($n:expr),+ $(,)?)) => {
+		unsafe { $crate::onnx::ort().$method.unwrap()($($n),+) }
+	};
+	($method:tt($($n:expr),+ $(,)?); nonNull($($check:expr),+ $(,)?)$(;)?) => {
+		$crate::onnx::ort().$method.unwrap()($($n),+);
+		$($crate::onnx::error::assert_non_null_pointer($check, stringify!($method))?;)+
+	};
+	(unsafe $method:tt($($n:expr),+ $(,)?); nonNull($($check:expr),+ $(,)?)$(;)?) => {
+		unsafe { $crate::onnx::ort().$method.unwrap()($($n),+) };
+		$($crate::onnx::error::assert_non_null_pointer($check, stringify!($method))?;)+
+	};
+	($method:tt($($n:expr),+ $(,)?) -> $err:expr$(;)?) => {
+		$crate::onnx::error::status_to_result($crate::onnx::ort().$method.unwrap()($($n),+)).map_err($err)?;
+	};
+	(unsafe $method:tt($($n:expr),+ $(,)?) -> $err:expr$(;)?) => {
+		$crate::onnx::error::status_to_result(unsafe { $crate::onnx::ort().$method.unwrap()($($n),+) }).map_err($err)?;
+	};
+	($method:tt($($n:expr),+ $(,)?) -> $err:expr; nonNull($($check:expr),+ $(,)?)$(;)?) => {
+		$crate::onnx::error::status_to_result($crate::onnx::ort().$method.unwrap()($($n),+)).map_err($err)?;
+		$($crate::onnx::error::assert_non_null_pointer($check, stringify!($method))?;)+
+	};
+	(unsafe $method:tt($($n:expr),+ $(,)?) -> $err:expr; nonNull($($check:expr),+ $(,)?)$(;)?) => {
+		$crate::onnx::error::status_to_result(unsafe { $crate::onnx::ort().$method.unwrap()($($n),+) }).map_err($err)?;
+		$($crate::onnx::error::assert_non_null_pointer($check, stringify!($method))?;)+
+	};
+}
+
+macro_rules! ortfree {
+	(unsafe $allocator_ptr:expr, $ptr:tt) => {
+		unsafe { (*$allocator_ptr).Free.unwrap()($allocator_ptr, $ptr as *mut std::ffi::c_void) }
+	};
+	($allocator_ptr:expr, $ptr:tt) => {
+		(*$allocator_ptr).Free.unwrap()($allocator_ptr, $ptr as *mut std::ffi::c_void)
+	};
+}
+
+pub(crate) use ortfree;
+pub(crate) use ortsys;
 
 pub(crate) fn char_p_to_string(raw: *const i8) -> OrtResult<String> {
 	let c_string = unsafe { std::ffi::CStr::from_ptr(raw as *mut i8).to_owned() };

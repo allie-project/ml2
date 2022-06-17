@@ -4,9 +4,9 @@ use ndarray::Array;
 use tracing::{debug, error};
 
 use crate::onnx::{
-	error::{assert_non_null_pointer, call_ort, status_to_result},
+	error::assert_non_null_pointer,
 	memory::MemoryInfo,
-	ort, sys,
+	ortsys, sys,
 	tensor::{ndarray_tensor::NdArrayTensor, IntoTensorElementDataType, TensorElementDataType},
 	OrtError, OrtResult
 };
@@ -63,25 +63,22 @@ where
 				let tensor_values_ptr: *mut std::ffi::c_void = array.as_mut_ptr() as *mut std::ffi::c_void;
 				assert_non_null_pointer(tensor_values_ptr, "TensorValues")?;
 
-				unsafe {
-					call_ort(|ort| {
-						ort.CreateTensorWithDataAsOrtValue.unwrap()(
-							memory_info.ptr,
-							tensor_values_ptr,
-							array.len() * std::mem::size_of::<T>(),
-							shape_ptr,
-							shape_len,
-							T::tensor_element_data_type().into(),
-							tensor_ptr_ptr
-						)
-					})
-				}
-				.map_err(OrtError::CreateTensorWithData)?;
-				assert_non_null_pointer(tensor_ptr, "Tensor")?;
+				ortsys![
+					unsafe CreateTensorWithDataAsOrtValue(
+						memory_info.ptr,
+						tensor_values_ptr,
+						array.len() * std::mem::size_of::<T>(),
+						shape_ptr,
+						shape_len,
+						T::tensor_element_data_type().into(),
+						tensor_ptr_ptr
+					) -> OrtError::CreateTensorWithData;
+					nonNull(tensor_ptr)
+				];
 
 				let mut is_tensor = 0;
-				let status = unsafe { ort().IsTensor.unwrap()(tensor_ptr, &mut is_tensor) };
-				status_to_result(status).map_err(OrtError::IsTensor)?;
+				ortsys![unsafe IsTensor(tensor_ptr, &mut is_tensor) -> OrtError::IsTensor];
+				assert_eq!(is_tensor, 1);
 			}
 			#[cfg(feature = "half")]
 			TensorElementDataType::Bfloat16 | TensorElementDataType::Float16 => {
@@ -89,34 +86,29 @@ where
 				let tensor_values_ptr: *mut std::ffi::c_void = array.as_mut_ptr() as *mut std::ffi::c_void;
 				assert_non_null_pointer(tensor_values_ptr, "TensorValues")?;
 
-				unsafe {
-					call_ort(|ort| {
-						ort.CreateTensorWithDataAsOrtValue.unwrap()(
-							memory_info.ptr,
-							tensor_values_ptr,
-							array.len() * std::mem::size_of::<T>(),
-							shape_ptr,
-							shape_len,
-							T::tensor_element_data_type().into(),
-							tensor_ptr_ptr
-						)
-					})
-				}
-				.map_err(OrtError::CreateTensorWithData)?;
-				assert_non_null_pointer(tensor_ptr, "Tensor")?;
+				ortsys![
+					unsafe CreateTensorWithDataAsOrtValue(
+						memory_info.ptr,
+						tensor_values_ptr,
+						array.len() * std::mem::size_of::<T>(),
+						shape_ptr,
+						shape_len,
+						T::tensor_element_data_type().into(),
+						tensor_ptr_ptr
+					) -> OrtError::CreateTensorWithData;
+					nonNull(tensor_ptr)
+				];
 
 				let mut is_tensor = 0;
-				let status = unsafe { ort().IsTensor.unwrap()(tensor_ptr, &mut is_tensor) };
-				status_to_result(status).map_err(OrtError::IsTensor)?;
+				ortsys![unsafe IsTensor(tensor_ptr, &mut is_tensor) -> OrtError::IsTensor];
+				assert_eq!(is_tensor, 1);
 			}
 			TensorElementDataType::String => {
 				// create tensor without data -- data is filled in later
-				unsafe {
-					call_ort(|ort| {
-						ort.CreateTensorAsOrtValue.unwrap()(allocator_ptr, shape_ptr, shape_len, T::tensor_element_data_type().into(), tensor_ptr_ptr)
-					})
-				}
-				.map_err(OrtError::CreateTensor)?;
+				ortsys![
+					unsafe CreateTensorAsOrtValue(allocator_ptr, shape_ptr, shape_len, T::tensor_element_data_type().into(), tensor_ptr_ptr)
+						-> OrtError::CreateTensor
+				];
 
 				// create null-terminated copies of each string, as per `FillStringTensor` docs
 				let null_terminated_copies: Vec<ffi::CString> = array
@@ -130,8 +122,7 @@ where
 
 				let string_pointers = null_terminated_copies.iter().map(|cstring| cstring.as_ptr()).collect::<Vec<_>>();
 
-				unsafe { call_ort(|ort| ort.FillStringTensor.unwrap()(tensor_ptr, string_pointers.as_ptr(), string_pointers.len())) }
-					.map_err(OrtError::FillStringTensor)?;
+				ortsys![unsafe FillStringTensor(tensor_ptr, string_pointers.as_ptr(), string_pointers.len()) -> OrtError::FillStringTensor];
 			}
 			_ => unimplemented!("Tensor element data type {:?} not yet implemented", T::tensor_element_data_type())
 		}
@@ -170,7 +161,7 @@ where
 		if self.c_ptr.is_null() {
 			error!("Null pointer, not calling free.");
 		} else {
-			unsafe { ort().ReleaseValue.unwrap()(self.c_ptr) }
+			ortsys![unsafe ReleaseValue(self.c_ptr)];
 		}
 
 		self.c_ptr = std::ptr::null_mut();
@@ -203,66 +194,69 @@ mod tests {
 	use crate::onnx::{AllocatorType, MemType};
 
 	#[test]
-	fn orttensor_from_array_0d_i32() {
-		let memory_info = MemoryInfo::new(AllocatorType::Arena, MemType::Default).unwrap();
+	fn orttensor_from_array_0d_i32() -> OrtResult<()> {
+		let memory_info = MemoryInfo::new(AllocatorType::Arena, MemType::Default)?;
 		let array = arr0::<i32>(123);
-		let tensor = OrtTensor::from_array(&memory_info, ptr::null_mut(), array).unwrap();
+		let tensor = OrtTensor::from_array(&memory_info, ptr::null_mut(), array)?;
 		let expected_shape: &[usize] = &[];
 		assert_eq!(tensor.shape(), expected_shape);
+		Ok(())
 	}
 
 	#[test]
-	fn orttensor_from_array_1d_i32() {
-		let memory_info = MemoryInfo::new(AllocatorType::Arena, MemType::Default).unwrap();
+	fn orttensor_from_array_1d_i32() -> OrtResult<()> {
+		let memory_info = MemoryInfo::new(AllocatorType::Arena, MemType::Default)?;
 		let array = arr1(&[1_i32, 2, 3, 4, 5, 6]);
-		let tensor = OrtTensor::from_array(&memory_info, ptr::null_mut(), array).unwrap();
+		let tensor = OrtTensor::from_array(&memory_info, ptr::null_mut(), array)?;
 		let expected_shape: &[usize] = &[6];
 		assert_eq!(tensor.shape(), expected_shape);
+		Ok(())
 	}
 
 	#[test]
-	fn orttensor_from_array_2d_i32() {
-		let memory_info = MemoryInfo::new(AllocatorType::Arena, MemType::Default).unwrap();
+	fn orttensor_from_array_2d_i32() -> OrtResult<()> {
+		let memory_info = MemoryInfo::new(AllocatorType::Arena, MemType::Default)?;
 		let array = arr2(&[[1_i32, 2, 3, 4, 5, 6], [7, 8, 9, 10, 11, 12]]);
-		let tensor = OrtTensor::from_array(&memory_info, ptr::null_mut(), array).unwrap();
+		let tensor = OrtTensor::from_array(&memory_info, ptr::null_mut(), array)?;
 		assert_eq!(tensor.shape(), &[2, 6]);
+		Ok(())
 	}
 
 	#[test]
-	fn orttensor_from_array_3d_i32() {
-		let memory_info = MemoryInfo::new(AllocatorType::Arena, MemType::Default).unwrap();
+	fn orttensor_from_array_3d_i32() -> OrtResult<()> {
+		let memory_info = MemoryInfo::new(AllocatorType::Arena, MemType::Default)?;
 		let array = arr3(&[
 			[[1_i32, 2, 3, 4, 5, 6], [7, 8, 9, 10, 11, 12]],
 			[[13, 14, 15, 16, 17, 18], [19, 20, 21, 22, 23, 24]],
 			[[25, 26, 27, 28, 29, 30], [31, 32, 33, 34, 35, 36]]
 		]);
-		let tensor = OrtTensor::from_array(&memory_info, ptr::null_mut(), array).unwrap();
+		let tensor = OrtTensor::from_array(&memory_info, ptr::null_mut(), array)?;
 		assert_eq!(tensor.shape(), &[3, 2, 6]);
+		Ok(())
 	}
 
 	#[test]
-	fn orttensor_from_array_1d_string() {
-		let memory_info = MemoryInfo::new(AllocatorType::Arena, MemType::Default).unwrap();
+	fn orttensor_from_array_1d_string() -> OrtResult<()> {
+		let memory_info = MemoryInfo::new(AllocatorType::Arena, MemType::Default)?;
 		let array = arr1(&[String::from("foo"), String::from("bar"), String::from("baz")]);
-		let tensor = OrtTensor::from_array(&memory_info, ort_default_allocator(), array).unwrap();
+		let tensor = OrtTensor::from_array(&memory_info, ort_default_allocator()?, array)?;
 		assert_eq!(tensor.shape(), &[3]);
+		Ok(())
 	}
 
 	#[test]
-	fn orttensor_from_array_3d_str() {
-		let memory_info = MemoryInfo::new(AllocatorType::Arena, MemType::Default).unwrap();
+	fn orttensor_from_array_3d_str() -> OrtResult<()> {
+		let memory_info = MemoryInfo::new(AllocatorType::Arena, MemType::Default)?;
 		let array = arr3(&[[["1", "2", "3"], ["4", "5", "6"]], [["7", "8", "9"], ["10", "11", "12"]]]);
-		let tensor = OrtTensor::from_array(&memory_info, ort_default_allocator(), array).unwrap();
+		let tensor = OrtTensor::from_array(&memory_info, ort_default_allocator()?, array)?;
 		assert_eq!(tensor.shape(), &[2, 2, 3]);
+		Ok(())
 	}
 
-	fn ort_default_allocator() -> *mut sys::OrtAllocator {
+	fn ort_default_allocator() -> OrtResult<*mut sys::OrtAllocator> {
 		let mut allocator_ptr: *mut sys::OrtAllocator = std::ptr::null_mut();
-		unsafe {
-			// this default non-arena allocator doesn't need to be deallocated
-			call_ort(|ort| ort.GetAllocatorWithDefaultOptions.unwrap()(&mut allocator_ptr))
-		}
-		.unwrap();
-		allocator_ptr
+		// this default non-arena allocator doesn't need to be deallocated
+		ortsys![unsafe GetAllocatorWithDefaultOptions(&mut allocator_ptr) -> OrtError::Allocator];
+		Ok(allocator_ptr)
 	}
 }

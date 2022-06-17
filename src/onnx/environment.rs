@@ -6,10 +6,10 @@ use std::{
 use lazy_static::lazy_static;
 use tracing::{debug, error, warn};
 
-use crate::onnx::{
+use super::{
 	custom_logger,
-	error::{status_to_result, OrtError, Result},
-	ort,
+	error::{status_to_result, OrtError, OrtResult},
+	ort, ortsys,
 	session::SessionBuilder,
 	sys, LoggingLevel
 };
@@ -74,7 +74,7 @@ impl Environment {
 	}
 
 	#[tracing::instrument]
-	fn new(name: String, log_level: LoggingLevel) -> Result<Environment> {
+	fn new(name: String, log_level: LoggingLevel) -> OrtResult<Environment> {
 		// NOTE: Because 'G_ENV' is a lazy_static, locking it will, initially, create
 		//      a new Arc<Mutex<EnvironmentSingleton>> with a strong count of 1.
 		//      Cloning it to embed it inside the 'Environment' to return
@@ -92,9 +92,8 @@ impl Environment {
 
 			let cname = CString::new(name.clone()).unwrap();
 
-			let create_env_with_custom_logger = ort().CreateEnvWithCustomLogger.unwrap();
-			let status = { unsafe { create_env_with_custom_logger(logging_function, logger_param, log_level.into(), cname.as_ptr(), &mut env_ptr) } };
-
+			let create_env_with_custom_logger = ortsys![CreateEnvWithCustomLogger];
+			let status = unsafe { create_env_with_custom_logger(logging_function, logger_param, log_level.into(), cname.as_ptr(), &mut env_ptr) };
 			status_to_result(status).map_err(OrtError::Environment)?;
 
 			debug!(env_ptr = format!("{:?}", env_ptr).as_str(), "Environment created.");
@@ -126,7 +125,7 @@ impl Environment {
 
 	/// Create a new [`SessionBuilder`](../session/struct.SessionBuilder.html)
 	/// used to create a new ONNX session.
-	pub fn new_session_builder(&self) -> Result<SessionBuilder> {
+	pub fn new_session_builder(&self) -> OrtResult<SessionBuilder> {
 		SessionBuilder::new(self)
 	}
 }
@@ -202,7 +201,7 @@ impl EnvBuilder {
 	}
 
 	/// Commit the configuration to a new [`Environment`](environment/struct.Environment.html)
-	pub fn build(self) -> Result<Environment> {
+	pub fn build(self) -> OrtResult<Environment> {
 		Environment::new(self.name, self.log_level)
 	}
 }

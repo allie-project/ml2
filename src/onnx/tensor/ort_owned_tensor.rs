@@ -4,7 +4,7 @@ use ndarray::{Array, ArrayView};
 use tracing::debug;
 
 use super::{ndarray_tensor::NdArrayTensor, TensorDataToType};
-use crate::onnx::{memory::MemoryInfo, ort, sys};
+use crate::onnx::{memory::MemoryInfo, ortsys, sys};
 
 /// Tensor containing data owned by the ONNX Runtime C library, used to return values from inference.
 ///
@@ -69,7 +69,7 @@ where
 	#[tracing::instrument]
 	fn drop(&mut self) {
 		debug!("Dropping OrtOwnedTensor.");
-		unsafe { ort().ReleaseValue.unwrap()(self.tensor_ptr) }
+		ortsys![unsafe ReleaseValue(self.tensor_ptr)];
 
 		self.tensor_ptr = std::ptr::null_mut();
 	}
