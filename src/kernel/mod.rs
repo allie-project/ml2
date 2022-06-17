@@ -264,7 +264,7 @@ impl<F: Float> KernelMethod<F> {
 }
 
 /// Defines the set of parameters needed to build a kernel
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct KernelParams<F, N = CommonNearestNeighbour> {
 	/// Whether to construct a dense or sparse kernel
 	kind: KernelType,

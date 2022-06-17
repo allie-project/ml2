@@ -51,7 +51,7 @@ pub struct PlattValidParams<F, O> {
 	phantom: PhantomData<O>
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlattParams<F, O>(PlattValidParams<F, O>);
 
 impl<F: Float, O> Default for PlattParams<F, O> {
