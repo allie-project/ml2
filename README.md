@@ -39,31 +39,40 @@ ML2 is the primary AI library used by [Allie Project](https://github.com/allie-p
         - `onnx-experimental`: Compiles Microsoft experimental operators.
         - `onnx-training`: Enables training via ONNX Runtime. Currently unavailable through high-level bindings.
         - `onnx-minimal-build`: Builds ONNX Runtime without ONNX model loading. Drastically reduces size. Recommended for release builds.
-        - **Execution providers**
-            - `onnxep-cuda`: Enables the CUDA execution provider for Maxwell (7xx) NVIDIA GPUs and above. Requires CUDA v11.4+.
-            - `onnxep-tensorrt`: Enables the TensorRT execution provider for GeForce 9xx series NVIDIA GPUs and above; requires CUDA v11.4+ and TensorRT v8.4+.
-            - `onnxep-dnnl`: Enables the oneDNN execution provider for x86/x64 targets.
-            - `onnxep-coreml`: Enables the CoreML execution provider for macOS/iOS targets.
-            - `onnxep-armnn`: Enables the ArmNN execution provider for ARM v8 targets.
-            - `onnxep-acl`: Enables the ARM Compute Library execution provider for multi-core ARM v8 processors.
-            - `onnxep-directml`: Enables the DirectML execution provider for Windows x86/x64 targets with dedicated GPUs supporting DirectX 12.
-            - `onnxep-migraphx`: Enables the MIGraphX execution provider for Windows x86/x64 targets with dedicated AMD GPUs.
-            - `onnxep-nnapi`: Enables the Android Neural Networks API execution provider for Android targets.
-            - `onnxep-tvm`: Enables the **preview** Apache TVM execution provider.
-            - `onnxep-openvino`: Enables the OpenVINO execution provider for 6th+ generation Intel Core CPUs.
-            - `onnxep-vitis-ai`: Enables Xilinx's Vitis-AI execution provider for U200/U250 accelerators.
+    - **Execution providers**: These are required for both building **and** using execution providers. Do not enable any of these features unless you are using the `compile` strategy or you are using the `system` strategy with binaries that support these execution providers, otherwise you'll run into linking errors.
+        - `onnxep-cuda`: Enables the CUDA execution provider for Maxwell (7xx) NVIDIA GPUs and above. Requires CUDA v11.4+.
+        - `onnxep-tensorrt`: Enables the TensorRT execution provider for GeForce 9xx series NVIDIA GPUs and above; requires CUDA v11.4+ and TensorRT v8.4+.
+        - `onnxep-onednn`: Enables the oneDNN execution provider for x86/x64 targets.
+        - `onnxep-coreml`: Enables the CoreML execution provider for macOS/iOS targets.
+        - `onnxep-armnn`: Enables the ArmNN execution provider for ARM v8 targets.
+        - `onnxep-acl`: Enables the ARM Compute Library execution provider for multi-core ARM v8 processors.
+        - `onnxep-directml`: Enables the DirectML execution provider for Windows x86/x64 targets with dedicated GPUs supporting DirectX 12.
+        - `onnxep-migraphx`: Enables the MIGraphX execution provider for Windows x86/x64 targets with dedicated AMD GPUs.
+        - `onnxep-nnapi`: Enables the Android Neural Networks API execution provider for Android targets.
+        - `onnxep-tvm`: Enables the **preview** Apache TVM execution provider.
+        - `onnxep-openvino`: Enables the OpenVINO execution provider for 6th+ generation Intel Core CPUs.
+        - `onnxep-vitis-ai`: Enables Xilinx's Vitis-AI execution provider for U200/U250 accelerators.
 - **Miscellaneous**
     - `half`: Builds support for `float16`/`bfloat16` ONNX tensors.
     - `use-half-intrinsics`: Use intrinsics in the `half` crate for faster operations when dealing with `float16`/`bfloat16` ONNX tensors.
 
-## Shared library hell
-Because building ONNX Runtime takes so long (and static linking is not recommended by Microsoft), it may be easier to compile ONNX Runtime as a shared library or use prebuilt DLLs. However, this can cause some issues with library paths and load orders.
+## ONNX Runtime details
 
-### Windows
+### Execution providers
+To use other execution providers, you must explicitly enable them via the `onnxep-*` Cargo features. Using the `compile` strategy, everything should just work™️. Using the `system` strategy, ensure that the binaries you are linking to have been built with the execution providers you want to use, otherwise you'll get linking errors. After that, configuring & enabling these execution providers can be done through `SessionBuilder::execution_providers()`.
+
+Requesting an execution provider via e.g. `ExecutionProviderBuilder::cuda()` will silently fail if that EP is not available on the system or encounters an error and falls back to the next requested execution provider or to the CPU provider if no requested providers are available. If you must know why the execution provider is unavailable, use `ExecutionProviderBuilder::try_*()`, e.g. `try_cuda()`.
+
+For prebuilt Microsoft binaries, you can enable the CUDA or TensorRT execution providers for Windows and Linux via the `onnxep-cuda` and `onnxep-tensorrt` Cargo features respectively. **No other execution providers are supported** in these binaries and enabling other features will fail. To use other execution providers, you must build ONNX Runtime yourself to be able to use them.
+
+### Shared library hell
+Because compiling ONNX Runtime from source takes so long (and static linking is not recommended by Microsoft), it may be easier to compile ONNX Runtime as a shared library or use prebuilt DLLs. However, this can cause some issues with library paths and load orders.
+
+#### Windows
 Some versions of Windows come bundled with `onnxruntime.dll` in the System32 folder. On build 22598.1, `onnxruntime.dll` is on version 1.10.0. ML2 requires 1.11.0, so everything failed because system DLLs take precedence. Luckily, DLLs in the same folder as the application have higher priority; ML2 can automatically copy the DLLs to the Cargo target folder when the `onnx-copy-dylibs` feature is enabled.
 
-### Linux
-You'll either have to copy `libonnxruntime.so` to a known lib location (e.g. `/usr/lib`) or use rpath.
+#### Linux
+You'll either have to copy `libonnxruntime.so` to a known lib location (e.g. `/usr/lib`) or enable rpath if you have the `onnx-copy-dylibs` feature enabled.
 
 In `Cargo.toml`:
 ```toml
@@ -81,7 +90,7 @@ In `.cargo/config.toml`:
 [target.x86_64-unknown-linux-gnu]
 rustflags = [ "-Clink-args=-Wl,-rpath,\\$ORIGIN" ]
 
-# do this for all targets as well
+# do this for all Linux targets as well
 ```
 
 ### macOS

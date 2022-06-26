@@ -11,7 +11,7 @@ use super::{
 	error::{status_to_result, OrtError, OrtResult},
 	ort, ortsys,
 	session::SessionBuilder,
-	sys, LoggingLevel
+	sys, ExecutionProviderOptions, LoggingLevel
 };
 
 lazy_static! {
@@ -48,17 +48,19 @@ struct EnvironmentSingleton {
 /// # }
 /// ```
 #[derive(Debug, Clone)]
-pub struct Environment {
-	env: Arc<Mutex<EnvironmentSingleton>>
+pub struct Environment<'a> {
+	env: Arc<Mutex<EnvironmentSingleton>>,
+	pub(crate) execution_providers: Option<ExecutionProviderOptions<'a>>
 }
 
-impl Environment {
+impl<'a> Environment<'a> {
 	/// Create a new environment builder using default values
 	/// (name: `default`, log level: [`LoggingLevel::Warning`])
-	pub fn builder() -> EnvBuilder {
+	pub fn builder() -> EnvBuilder<'a> {
 		EnvBuilder {
 			name: "default".into(),
-			log_level: LoggingLevel::Warning
+			log_level: LoggingLevel::Warning,
+			execution_providers: None
 		}
 	}
 
@@ -71,8 +73,7 @@ impl Environment {
 		*self.env.lock().unwrap().env_ptr.get_mut()
 	}
 
-	#[tracing::instrument]
-	fn new(name: String, log_level: LoggingLevel) -> OrtResult<Environment> {
+	fn new(name: String, log_level: LoggingLevel, execution_providers: Option<ExecutionProviderOptions<'a>>) -> OrtResult<Environment<'a>> {
 		// NOTE: Because 'G_ENV' is a lazy_static, locking it will, initially, create
 		//      a new Arc<Mutex<EnvironmentSingleton>> with a strong count of 1.
 		//      Cloning it to embed it inside the 'Environment' to return
@@ -104,7 +105,10 @@ impl Environment {
 			//       will be 2:
 			//          * one lazy_static 'G_ENV'
 			//          * one inside the 'Environment' returned
-			Ok(Environment { env: G_ENV.clone() })
+			Ok(Environment {
+				env: G_ENV.clone(),
+				execution_providers
+			})
 		} else {
 			warn!(
 				name = environment_guard.name.as_str(),
@@ -117,7 +121,10 @@ impl Environment {
 			//       will be 2:
 			//          * one lazy_static 'G_ENV'
 			//          * one inside the 'Environment' returned
-			Ok(Environment { env: G_ENV.clone() })
+			Ok(Environment {
+				env: G_ENV.clone(),
+				execution_providers
+			})
 		}
 	}
 
@@ -128,7 +135,7 @@ impl Environment {
 	}
 }
 
-impl Drop for Environment {
+impl<'a> Drop for Environment<'a> {
 	#[tracing::instrument]
 	fn drop(&mut self) {
 		debug!(global_arc_count = Arc::strong_count(&G_ENV), "Dropping the Environment.",);
@@ -169,18 +176,19 @@ impl Drop for Environment {
 ///
 /// **NOTE**: If the same configuration method (for example [`EnvBuilder::with_name()`] is called multiple times, the
 /// last value will have precedence.
-pub struct EnvBuilder {
+pub struct EnvBuilder<'a> {
 	name: String,
-	log_level: LoggingLevel
+	log_level: LoggingLevel,
+	execution_providers: Option<ExecutionProviderOptions<'a>>
 }
 
-impl EnvBuilder {
+impl<'a> EnvBuilder<'a> {
 	/// Configure the environment with a given name
 	///
 	/// **NOTE**: Since ONNX can only define one environment per process, creating multiple environments using multiple
 	/// [`EnvBuilder`]s will end up re-using the same environment internally; a new one will _not_ be created. New
 	/// parameters will be ignored.
-	pub fn with_name<S>(mut self, name: S) -> EnvBuilder
+	pub fn with_name<S>(mut self, name: S) -> EnvBuilder<'a>
 	where
 		S: Into<String>
 	{
@@ -193,14 +201,53 @@ impl EnvBuilder {
 	/// **NOTE**: Since ONNX can only define one environment per process, creating multiple environments using multiple
 	/// [`EnvBuilder`]s will end up re-using the same environment internally; a new one will _not_ be created. New
 	/// parameters will be ignored.
-	pub fn with_log_level(mut self, log_level: LoggingLevel) -> EnvBuilder {
+	pub fn with_log_level(mut self, log_level: LoggingLevel) -> EnvBuilder<'a> {
 		self.log_level = log_level;
 		self
 	}
 
+	/// Configures a list of execution providers sessions created under this environment will use by default. Sessions
+	/// may override these via [`SessionBuilder::with_execution_providers()`].
+	///
+	/// Execution providers are loaded in the order they are provided until a suitable execution provider is found. Most
+	/// execution providers will silently fail if they are unavailable or misconfigured (see notes below), however, some
+	/// may log to the console, which is sadly unavoidable. The CPU execution provider is always available, so always
+	/// put it last in the list (though it is not required).
+	///
+	/// Execution providers will only work if the corresponding `onnxep-*` feature is enabled and ONNX Runtime was built
+	/// with support for the corresponding execution provider. Execution providers that do not have their corresponding
+	/// feature enabled are currently ignored.
+	///
+	/// Execution provider options can be specified in the second argument. Refer to ONNX Runtime's
+	/// [execution provider docs](https://onnxruntime.ai/docs/execution-providers/) for configuration options. In most
+	/// cases, passing `None` to configure with no options is suitable.
+	///
+	/// It is recommended to enable the `cuda` EP for x86 platforms and the `acl` EP for ARM platforms for the best
+	/// performance, though this does mean you'll have to build ONNX Runtime for these targets. Microsoft's prebuilt
+	/// binaries are built with CUDA and TensorRT support, if you built ml2 with the `onnxep-cuda` or `onnxep-tensorrt`
+	/// features enabled.
+	///
+	/// Supported execution providers:
+	/// - `cpu`: Default CPU/MLAS execution provider. Available on all platforms.
+	/// - `acl`: Arm Compute Library
+	/// - `cuda`: NVIDIA CUDA/cuDNN
+	/// - `tensorrt`: NVIDIA TensorRT
+	///
+	/// ## Notes
+	///
+	/// - Using the CUDA/TensorRT execution providers **can terminate the process if the CUDA/TensorRT installation is
+	///   misconfigured**. Configuring the execution provider will seem to work, but when you attempt to run a session,
+	///   it will hard crash the process with a "stack buffer overrun" error. This can occur when CUDA/TensorRT is
+	///   missing a DLL such as `zlibwapi.dll`. To prevent your app from crashing, you can check to see if you can load
+	///   `zlibwapi.dll` before enabling the CUDA/TensorRT execution providers.
+	pub fn with_execution_providers(mut self, execution_providers: ExecutionProviderOptions<'a>) -> EnvBuilder<'a> {
+		self.execution_providers.replace(execution_providers);
+		self
+	}
+
 	/// Commit the configuration to a new [`Environment`].
-	pub fn build(self) -> OrtResult<Environment> {
-		Environment::new(self.name, self.log_level)
+	pub fn build(self) -> OrtResult<Environment<'a>> {
+		Environment::new(self.name, self.log_level, self.execution_providers)
 	}
 }
 
@@ -283,7 +330,7 @@ mod tests {
 		let _concurrent_run_lock_guard = CONCURRENT_TEST_RUN.single_test_run();
 
 		let initial_name = String::from("concurrent_environment_creation");
-		let main_env = Environment::new(initial_name.clone(), LoggingLevel::Warning).unwrap();
+		let main_env = Environment::new(initial_name.clone(), LoggingLevel::Warning, None).unwrap();
 		let main_env_ptr = main_env.env_ptr() as usize;
 
 		assert_eq!(main_env.name(), initial_name);

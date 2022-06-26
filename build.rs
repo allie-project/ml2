@@ -23,6 +23,18 @@ const PROTOBUF_EXTRACT_DIR: &str = "protobuf";
 const PROTOBUF_VERSION: &str = "3.11.2";
 const PROTOBUF_RELEASE_BASE_URL: &str = "https://github.com/protocolbuffers/protobuf/releases/download";
 
+macro_rules! incompatible_providers {
+	($($provider:ident),*) => {
+		#[allow(unused_imports)]
+		use casey::upper;
+		$(
+			if env::var(concat!("CARGO_FEATURE_ONNXEP_", stringify!(upper!($provider)))).is_ok() {
+				panic!(concat!("Provider not available for this strategy and/or target: ", stringify!($provider)));
+			}
+		)*
+	}
+}
+
 trait OnnxPrebuiltArchive {
 	fn as_onnx_str(&self) -> Cow<str>;
 }
@@ -150,7 +162,11 @@ impl OnnxPrebuiltArchive for Triplet {
 }
 
 fn prebuilt_onnx_url() -> (PathBuf, String) {
-	let accelerator = if cfg!(feature = "onnxep-cuda") { Accelerator::Gpu } else { Accelerator::None };
+	let accelerator = if cfg!(feature = "onnxep-cuda") || cfg!(feature = "onnxep-tensorrt") {
+		Accelerator::Gpu
+	} else {
+		Accelerator::None
+	};
 
 	let triplet = Triplet {
 		os: env::var("CARGO_CFG_TARGET_OS").expect("unable to get target OS").parse().unwrap(),
@@ -277,12 +293,36 @@ fn prepare_libort_dir() -> (PathBuf, bool) {
 	let strategy = env::var(ORT_ENV_STRATEGY);
 	println!("[ml2] strategy: {:?}", strategy.as_ref().map(String::as_str).unwrap_or_else(|_| "unknown"));
 
+	let target = env::var("TARGET").unwrap();
+	let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
+	if target_arch.eq_ignore_ascii_case("aarch64") {
+		incompatible_providers![cuda, openvino, vitis_ai, tensorrt, migraphx, rocm];
+	} else if target_arch.eq_ignore_ascii_case("x86_64") {
+		incompatible_providers![vitis_ai, acl, armnn];
+	} else {
+		panic!("unsupported target architecture: {}", target_arch);
+	}
+
+	if target.contains("macos") {
+		incompatible_providers![cuda, openvino, tensorrt, directml, winml];
+	} else if target.contains("windows") {
+		incompatible_providers![coreml, vitis_ai, acl, armnn];
+	} else {
+		incompatible_providers![coreml, vitis_ai, directml, winml];
+	}
+
 	match strategy
 		.as_ref()
 		.map(String::as_str)
 		.unwrap_or_else(|_| if cfg!(feature = "onnx-prefer-compile-strategy") { "compile" } else { "download" })
 	{
 		"download" => {
+			if target.contains("macos") {
+				incompatible_providers![cuda, onednn, openvino, openmp, vitis_ai, tvm, tensorrt, migraphx, directml, winml, acl, armnn, rocm];
+			} else {
+				incompatible_providers![onednn, coreml, openvino, openmp, vitis_ai, tvm, migraphx, directml, winml, acl, armnn, rocm];
+			}
+
 			let (prebuilt_archive, prebuilt_url) = prebuilt_onnx_url();
 
 			let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());

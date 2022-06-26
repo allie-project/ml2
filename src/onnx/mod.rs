@@ -1,6 +1,7 @@
 pub mod download;
 pub mod environment;
 pub mod error;
+pub mod execution_providers;
 pub mod memory;
 pub mod metadata;
 pub mod session;
@@ -15,6 +16,7 @@ use std::{
 
 pub use environment::Environment;
 pub use error::{OrtApiError, OrtError, OrtResult};
+pub use execution_providers::ExecutionProviderOptions;
 use lazy_static::lazy_static;
 pub use session::{Session, SessionBuilder};
 

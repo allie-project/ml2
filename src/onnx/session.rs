@@ -6,7 +6,12 @@ use std::env;
 use std::os::unix::ffi::OsStrExt;
 #[cfg(target_family = "windows")]
 use std::os::windows::ffi::OsStrExt;
-use std::{ffi::CString, fmt::Debug, os::raw::c_char, path::Path};
+use std::{
+	ffi::CString,
+	fmt::{self, Debug},
+	os::raw::c_char,
+	path::Path
+};
 
 use ndarray::Array;
 use tracing::{debug, error};
@@ -15,12 +20,13 @@ use super::{
 	char_p_to_string,
 	environment::Environment,
 	error::{assert_non_null_pointer, assert_null_pointer, status_to_result, NonMatchingDimensionsError, OrtApiError, OrtError, OrtResult},
+	execution_providers::apply_execution_providers,
 	extern_system_fn,
 	memory::MemoryInfo,
 	metadata::Metadata,
 	ort, ortsys, sys,
 	tensor::{ort_owned_tensor::OrtOwnedTensor, IntoTensorElementDataType, OrtTensor, TensorDataToType, TensorElementDataType},
-	AllocatorType, GraphOptimizationLevel, MemType
+	AllocatorType, ExecutionProviderOptions, GraphOptimizationLevel, MemType
 };
 #[cfg(feature = "onnx-fetch-models")]
 use super::{download::OnnxModel, error::OrtDownloadError};
@@ -49,16 +55,26 @@ use super::{download::OnnxModel, error::OrtDownloadError};
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Debug)]
-pub struct SessionBuilder<'a> {
-	env: &'a Environment,
+pub struct SessionBuilder<'a, 'b> {
+	env: &'a Environment<'b>,
 	session_options_ptr: *mut sys::OrtSessionOptions,
 
 	allocator: AllocatorType,
-	memory_type: MemType
+	memory_type: MemType,
+	execution_providers: Option<ExecutionProviderOptions<'a>>
 }
 
-impl<'a> Drop for SessionBuilder<'a> {
+impl<'a, 'b> Debug for SessionBuilder<'a, 'b> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+		f.debug_struct("SessionBuilder")
+			.field("env", &self.env.name())
+			.field("allocator", &self.allocator)
+			.field("memory_type", &self.memory_type)
+			.finish()
+	}
+}
+
+impl<'a, 'b> Drop for SessionBuilder<'a, 'b> {
 	#[tracing::instrument]
 	fn drop(&mut self) {
 		if self.session_options_ptr.is_null() {
@@ -70,8 +86,8 @@ impl<'a> Drop for SessionBuilder<'a> {
 	}
 }
 
-impl<'a> SessionBuilder<'a> {
-	pub(crate) fn new(env: &'a Environment) -> OrtResult<SessionBuilder<'a>> {
+impl<'a, 'b> SessionBuilder<'a, 'b> {
+	pub(crate) fn new(env: &'a Environment<'b>) -> OrtResult<SessionBuilder<'a, 'b>> {
 		let mut session_options_ptr: *mut sys::OrtSessionOptions = std::ptr::null_mut();
 		ortsys![unsafe CreateSessionOptions(&mut session_options_ptr) -> OrtError::CreateSessionOptions; nonNull(session_options_ptr)];
 
@@ -79,8 +95,52 @@ impl<'a> SessionBuilder<'a> {
 			env,
 			session_options_ptr,
 			allocator: AllocatorType::Arena,
-			memory_type: MemType::Default
+			memory_type: MemType::Default,
+			execution_providers: None
 		})
+	}
+
+	/// Configures a list of execution providers to attempt to use for the session.
+	///
+	/// Execution providers are loaded in the order they are provided until a suitable execution provider is found. Most
+	/// execution providers will silently fail if they are unavailable or misconfigured (see notes below), however, some
+	/// may log to the console, which is sadly unavoidable. The CPU execution provider is always available, so always
+	/// put it last in the list (though it is not required).
+	///
+	/// Execution providers will only work if the corresponding `onnxep-*` feature is enabled and ONNX Runtime was built
+	/// with support for the corresponding execution provider. Execution providers that do not have their corresponding
+	/// feature enabled are currently ignored.
+	///
+	/// Execution provider options can be specified in the second argument. Refer to ONNX Runtime's
+	/// [execution provider docs](https://onnxruntime.ai/docs/execution-providers/) for configuration options. In most
+	/// cases, passing `None` to configure with no options is suitable.
+	///
+	/// It is recommended to enable the `cuda` EP for x86 platforms and the `acl` EP for ARM platforms for the best
+	/// performance, though this does mean you'll have to build ONNX Runtime for these targets. Microsoft's prebuilt
+	/// binaries are built with CUDA and TensorRT support, if you built ml2 with the `onnxep-cuda` or `onnxep-tensorrt`
+	/// features enabled.
+	///
+	/// Supported execution providers:
+	/// - `cpu`: Default CPU/MLAS execution provider. Available on all platforms.
+	/// - `acl`: Arm Compute Library
+	/// - `cuda`: NVIDIA CUDA/cuDNN
+	/// - `tensorrt`: NVIDIA TensorRT
+	///
+	/// ## Notes
+	///
+	/// - **Use of [`SessionBuilder::with_execution_providers`] in a library is discouraged.** Execution providers
+	///   should always be configurable by the user, in case an execution provider is misconfigured and causes the
+	///   application to crash (see notes below). Instead, your library should accept an [`Environment`] from the user
+	///   rather than creating its own. This way, the user can configure execution providers for **all** modules that
+	///   use it.
+	/// - Using the CUDA/TensorRT execution providers **can terminate the process if the CUDA/TensorRT installation is
+	///   misconfigured**. Configuring the execution provider will seem to work, but when you attempt to run a session,
+	///   it will hard crash the process with a "stack buffer overrun" error. This can occur when CUDA/TensorRT is
+	///   missing a DLL such as `zlibwapi.dll`. To prevent your app from crashing, you can check to see if you can load
+	///   `zlibwapi.dll` before enabling the CUDA/TensorRT execution providers.
+	pub fn with_execution_providers(mut self, execution_providers: ExecutionProviderOptions<'a>) -> OrtResult<SessionBuilder<'a, 'b>> {
+		self.execution_providers.replace(execution_providers);
+		Ok(self)
 	}
 
 	/// Configure the session to use a number of threads to parallelize the execution within nodes. If ONNX Runtime was
@@ -90,7 +150,7 @@ impl<'a> SessionBuilder<'a> {
 	///
 	/// For configuring the number of threads used when the session execution mode is set to `Parallel`, see
 	/// [`SessionBuilder::with_inter_threads()`].
-	pub fn with_intra_threads(self, num_threads: i16) -> OrtResult<SessionBuilder<'a>> {
+	pub fn with_intra_threads(self, num_threads: i16) -> OrtResult<SessionBuilder<'a, 'b>> {
 		// We use a u16 in the builder to cover the 16-bits positive values of a i32.
 		let num_threads = num_threads as i32;
 		ortsys![unsafe SetIntraOpNumThreads(self.session_options_ptr, num_threads) -> OrtError::CreateSessionOptions];
@@ -104,7 +164,7 @@ impl<'a> SessionBuilder<'a> {
 	///
 	/// For configuring the number of threads used to parallelize the execution within nodes, see
 	/// [`SessionBuilder::with_intra_threads()`].
-	pub fn with_inter_threads(self, num_threads: i16) -> OrtResult<SessionBuilder<'a>> {
+	pub fn with_inter_threads(self, num_threads: i16) -> OrtResult<SessionBuilder<'a, 'b>> {
 		// We use a u16 in the builder to cover the 16-bits positive values of a i32.
 		let num_threads = num_threads as i32;
 		ortsys![unsafe SetInterOpNumThreads(self.session_options_ptr, num_threads) -> OrtError::CreateSessionOptions];
@@ -116,7 +176,7 @@ impl<'a> SessionBuilder<'a> {
 	/// Parallel execution can improve performance for models with many branches, at the cost of higher memory usage.
 	/// You can configure the amount of threads used to parallelize the execution of the graph via
 	/// [`SessionBuilder::with_inter_threads()`].
-	pub fn with_parallel_execution(self, parallel_execution: bool) -> OrtResult<SessionBuilder<'a>> {
+	pub fn with_parallel_execution(self, parallel_execution: bool) -> OrtResult<SessionBuilder<'a, 'b>> {
 		let execution_mode = if parallel_execution {
 			sys::ExecutionMode::ORT_PARALLEL
 		} else {
@@ -128,26 +188,26 @@ impl<'a> SessionBuilder<'a> {
 
 	/// Set the session's optimization level. See [`GraphOptimizationLevel`] for more information on the different
 	/// optimization levels.
-	pub fn with_optimization_level(self, opt_level: GraphOptimizationLevel) -> OrtResult<SessionBuilder<'a>> {
+	pub fn with_optimization_level(self, opt_level: GraphOptimizationLevel) -> OrtResult<SessionBuilder<'a, 'b>> {
 		ortsys![unsafe SetSessionGraphOptimizationLevel(self.session_options_ptr, opt_level.into()) -> OrtError::CreateSessionOptions];
 		Ok(self)
 	}
 
 	/// Set the session's allocator. Defaults to [`AllocatorType::Arena`].
-	pub fn with_allocator(mut self, allocator: AllocatorType) -> OrtResult<SessionBuilder<'a>> {
+	pub fn with_allocator(mut self, allocator: AllocatorType) -> OrtResult<SessionBuilder<'a, 'b>> {
 		self.allocator = allocator;
 		Ok(self)
 	}
 
 	/// Set the session's memory type. Defaults to [`MemType::Default`].
-	pub fn with_memory_type(mut self, memory_type: MemType) -> OrtResult<SessionBuilder<'a>> {
+	pub fn with_memory_type(mut self, memory_type: MemType) -> OrtResult<SessionBuilder<'a, 'b>> {
 		self.memory_type = memory_type;
 		Ok(self)
 	}
 
 	/// Downloads a pre-trained ONNX model from the [ONNX Model Zoo](https://github.com/onnx/models) and builds the session.
 	#[cfg(feature = "onnx-fetch-models")]
-	pub fn with_model_downloaded<M>(self, model: M) -> OrtResult<Session<'a>>
+	pub fn with_model_downloaded<M>(self, model: M) -> OrtResult<Session<'a, 'b>>
 	where
 		M: Into<OnnxModel>
 	{
@@ -155,7 +215,7 @@ impl<'a> SessionBuilder<'a> {
 	}
 
 	#[cfg(feature = "onnx-fetch-models")]
-	fn with_model_downloaded_monomorphized(self, model: OnnxModel) -> OrtResult<Session<'a>> {
+	fn with_model_downloaded_monomorphized(self, model: OnnxModel) -> OrtResult<Session<'a, 'b>> {
 		let download_dir = env::current_dir().map_err(OrtDownloadError::IoError)?;
 		let downloaded_path = model.download_to(download_dir)?;
 		self.with_model_from_file(downloaded_path)
@@ -165,7 +225,7 @@ impl<'a> SessionBuilder<'a> {
 	//       See all OrtApi methods taking a `options: *mut OrtSessionOptions`.
 
 	/// Loads an ONNX model from a file and builds the session.
-	pub fn with_model_from_file<P>(self, model_filepath_ref: P) -> OrtResult<Session<'a>>
+	pub fn with_model_from_file<P>(self, model_filepath_ref: P) -> OrtResult<Session<'a, 'b>>
 	where
 		P: AsRef<Path> + 'a
 	{
@@ -190,6 +250,11 @@ impl<'a> SessionBuilder<'a> {
             .chain(std::iter::once(&b'\0')) // Make sure we have a null terminated string
             .map(|b| *b as std::os::raw::c_char)
             .collect();
+
+		let execution_providers = (&self.env.execution_providers).as_ref().or(self.execution_providers.as_ref());
+		if let Some(execution_providers) = execution_providers {
+			apply_execution_providers(self.session_options_ptr, execution_providers);
+		}
 
 		let env_ptr: *const sys::OrtEnv = self.env.env_ptr();
 
@@ -222,17 +287,22 @@ impl<'a> SessionBuilder<'a> {
 	}
 
 	/// Load an ONNX graph from memory and commit the session
-	pub fn with_model_from_memory<B>(self, model_bytes: B) -> OrtResult<Session<'a>>
+	pub fn with_model_from_memory<B>(self, model_bytes: B) -> OrtResult<Session<'a, 'b>>
 	where
 		B: AsRef<[u8]>
 	{
 		self.with_model_from_memory_monomorphized(model_bytes.as_ref())
 	}
 
-	fn with_model_from_memory_monomorphized(self, model_bytes: &[u8]) -> OrtResult<Session<'a>> {
+	fn with_model_from_memory_monomorphized(self, model_bytes: &[u8]) -> OrtResult<Session<'a, 'b>> {
 		let mut session_ptr: *mut sys::OrtSession = std::ptr::null_mut();
 
 		let env_ptr: *const sys::OrtEnv = self.env.env_ptr();
+
+		let execution_providers = (&self.env.execution_providers).as_ref().or(self.execution_providers.as_ref());
+		if let Some(execution_providers) = execution_providers {
+			apply_execution_providers(self.session_options_ptr, execution_providers);
+		}
 
 		let model_data = model_bytes.as_ptr() as *const std::ffi::c_void;
 		let model_data_length = model_bytes.len();
@@ -269,9 +339,9 @@ impl<'a> SessionBuilder<'a> {
 
 /// Type storing the session information, built from an [`Environment`](environment/struct.Environment.html)
 #[derive(Debug)]
-pub struct Session<'a> {
+pub struct Session<'a, 'b> {
 	#[allow(dead_code)]
-	env: &'a Environment,
+	env: &'a Environment<'b>,
 	session_ptr: *mut sys::OrtSession,
 	allocator_ptr: *mut sys::OrtAllocator,
 	memory_info: MemoryInfo,
@@ -329,7 +399,7 @@ impl Output {
 	}
 }
 
-impl<'a> Drop for Session<'a> {
+impl<'a, 'b> Drop for Session<'a, 'b> {
 	#[tracing::instrument]
 	fn drop(&mut self) {
 		debug!("Dropping the session.");
@@ -344,7 +414,7 @@ impl<'a> Drop for Session<'a> {
 	}
 }
 
-impl<'a> Session<'a> {
+impl<'a, 'b> Session<'a, 'b> {
 	/// Run the input data through the ONNX graph, performing inference.
 	///
 	/// Note that ONNX models can have multiple inputs; a `Vec<_>` is thus
