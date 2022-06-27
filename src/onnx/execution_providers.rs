@@ -78,6 +78,5 @@ pub(crate) fn apply_execution_providers(options: *mut sys::OrtSessionOptions, ex
 			}
 			_ => {}
 		};
-		panic!("Applying execution provider {}", name);
 	}
 }
