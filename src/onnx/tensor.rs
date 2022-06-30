@@ -20,7 +20,7 @@ pub mod ort_tensor;
 
 use std::{fmt, ptr};
 
-pub use ort_owned_tensor::OrtOwnedTensor;
+pub use ort_owned_tensor::{DynOrtTensor, OrtOwnedTensor};
 pub use ort_tensor::OrtTensor;
 
 use super::{
@@ -30,7 +30,7 @@ use super::{
 };
 
 /// Enum mapping ONNX Runtime's supported tensor data types.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 #[cfg_attr(not(windows), repr(u32))]
 #[cfg_attr(windows, repr(i32))]
 pub enum TensorElementDataType {

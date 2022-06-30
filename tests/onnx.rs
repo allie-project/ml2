@@ -6,13 +6,13 @@ use std::{
 };
 
 use ml2::onnx::error::OrtDownloadError;
-use ml2::onnx::tensor::OrtOwnedTensor;
 
 mod download {
 	use image::{imageops::FilterType, ImageBuffer, Luma, Pixel, Rgb};
 	use ml2::onnx::{
 		download::vision::{DomainBasedImageClassification, ImageClassification},
 		environment::Environment,
+		tensor::{DynOrtTensor, OrtOwnedTensor},
 		GraphOptimizationLevel, LoggingLevel, OrtResult
 	};
 	use ndarray::s;
@@ -89,11 +89,11 @@ mod download {
 		let input_tensor_values = vec![array];
 
 		// Perform the inference
-		let outputs: Vec<ml2::onnx::tensor::OrtOwnedTensor<f32, ndarray::Dim<ndarray::IxDynImpl>>> = session.run(input_tensor_values)?;
+		let outputs: Vec<DynOrtTensor<ndarray::Dim<ndarray::IxDynImpl>>> = session.run(input_tensor_values)?;
 
 		// Downloaded model does not have a softmax as final layer; call softmax on second axis
 		// and iterate on resulting probabilities, creating an index to later access labels.
-		let output: &OrtOwnedTensor<f32, _> = &outputs[0];
+		let output: OrtOwnedTensor<_, _> = outputs[0].try_extract()?;
 		let mut probabilities: Vec<(usize, f32)> = output.softmax(ndarray::Axis(1)).iter().copied().enumerate().collect::<Vec<_>>();
 		// Sort probabilities so highest is at beginning of vector.
 		probabilities.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
@@ -155,9 +155,9 @@ mod download {
 		let input_tensor_values = vec![array];
 
 		// Perform the inference
-		let outputs: Vec<ml2::onnx::tensor::OrtOwnedTensor<f32, ndarray::Dim<ndarray::IxDynImpl>>> = session.run(input_tensor_values)?;
+		let outputs: Vec<DynOrtTensor<ndarray::Dim<ndarray::IxDynImpl>>> = session.run(input_tensor_values)?;
 
-		let output: &OrtOwnedTensor<f32, _> = &outputs[0];
+		let output: OrtOwnedTensor<_, _> = outputs[0].try_extract()?;
 		let mut probabilities: Vec<(usize, f32)> = output.softmax(ndarray::Axis(1)).iter().copied().enumerate().collect::<Vec<_>>();
 
 		// Sort probabilities so highest is at beginning of vector.
@@ -241,10 +241,10 @@ mod download {
 		let input_tensor_values = vec![array];
 
 		// Perform the inference
-		let outputs: Vec<ml2::onnx::tensor::OrtOwnedTensor<f32, ndarray::Dim<ndarray::IxDynImpl>>> = session.run(input_tensor_values)?;
+		let outputs: Vec<DynOrtTensor<ndarray::Dim<ndarray::IxDynImpl>>> = session.run(input_tensor_values)?;
 
 		assert_eq!(outputs.len(), 1);
-		let output = &outputs[0];
+		let output: OrtOwnedTensor<'_, f32, ndarray::Dim<ndarray::IxDynImpl>> = outputs[0].try_extract()?;
 
 		// The image should have doubled in size
 		assert_eq!(output.shape(), [1, 448, 448, 3]);

@@ -9,8 +9,9 @@ pub mod sys;
 pub mod tensor;
 
 use std::{
-	ffi::CStr,
+	ffi::{self, CStr},
 	os::raw::c_char,
+	ptr,
 	sync::{atomic::AtomicPtr, Arc, Mutex}
 };
 
@@ -34,7 +35,7 @@ pub(crate) use extern_system_fn;
 lazy_static! {
 	pub(crate) static ref G_ORT_API: Arc<Mutex<AtomicPtr<sys::OrtApi>>> = {
 		let base: *const sys::OrtApiBase = unsafe { sys::OrtGetApiBase() };
-		assert_ne!(base, std::ptr::null());
+		assert_ne!(base, ptr::null());
 		let get_api: extern_system_fn! { unsafe fn(u32) -> *const sys::OrtApi } = unsafe { (*base).GetApi.unwrap() };
 		let api: *const sys::OrtApi = unsafe { get_api(sys::ORT_API_VERSION) };
 		Arc::new(Mutex::new(AtomicPtr::new(api as *mut sys::OrtApi)))
@@ -46,7 +47,7 @@ pub fn ort() -> sys::OrtApi {
 	let api_ref_mut: &mut *mut sys::OrtApi = api_ref.get_mut();
 	let api_ptr_mut: *mut sys::OrtApi = *api_ref_mut;
 
-	assert_ne!(api_ptr_mut, std::ptr::null_mut());
+	assert_ne!(api_ptr_mut, ptr::null_mut());
 
 	unsafe { *api_ptr_mut }
 }
@@ -101,7 +102,7 @@ pub(crate) use ortfree;
 pub(crate) use ortsys;
 
 pub(crate) fn char_p_to_string(raw: *const c_char) -> OrtResult<String> {
-	let c_string = unsafe { std::ffi::CStr::from_ptr(raw as *mut c_char).to_owned() };
+	let c_string = unsafe { CStr::from_ptr(raw as *mut c_char).to_owned() };
 	match c_string.into_string() {
 		Ok(string) => Ok(string),
 		Err(e) => Err(OrtApiError::IntoStringError(e))
@@ -132,7 +133,7 @@ impl<'a> From<&'a str> for CodeLocation<'a> {
 
 extern_system_fn! {
 	/// Callback from C that will handle ONNX logging, forwarding ONNX's logs to the `tracing` crate.
-	pub(crate) fn custom_logger(_params: *mut std::ffi::c_void, severity: sys::OrtLoggingLevel, category: *const c_char, log_id: *const c_char, code_location: *const c_char, message: *const c_char) {
+	pub(crate) fn custom_logger(_params: *mut ffi::c_void, severity: sys::OrtLoggingLevel, category: *const c_char, log_id: *const c_char, code_location: *const c_char, message: *const c_char) {
 		use tracing::{span, Level, trace, debug, warn, info, error};
 
 		let log_level = match severity {
@@ -143,13 +144,13 @@ extern_system_fn! {
 			sys::OrtLoggingLevel::ORT_LOGGING_LEVEL_FATAL => Level::ERROR
 		};
 
-		assert_ne!(category, std::ptr::null());
+		assert_ne!(category, ptr::null());
 		let category = unsafe { CStr::from_ptr(category) };
-		assert_ne!(code_location, std::ptr::null());
+		assert_ne!(code_location, ptr::null());
 		let code_location = unsafe { CStr::from_ptr(code_location) }.to_str().unwrap_or("unknown");
-		assert_ne!(message, std::ptr::null());
+		assert_ne!(message, ptr::null());
 		let message = unsafe { CStr::from_ptr(message) };
-		assert_ne!(log_id, std::ptr::null());
+		assert_ne!(log_id, ptr::null());
 		let log_id = unsafe { CStr::from_ptr(log_id) };
 
 		let code_location = CodeLocation::from(code_location);
@@ -343,7 +344,7 @@ mod test {
 
 	#[test]
 	fn test_char_p_to_string() {
-		let s = std::ffi::CString::new("foo").unwrap();
+		let s = ffi::CString::new("foo").unwrap();
 		let ptr = s.as_c_str().as_ptr();
 		assert_eq!("foo", char_p_to_string(ptr).unwrap());
 	}

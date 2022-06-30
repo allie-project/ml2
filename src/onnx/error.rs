@@ -2,7 +2,7 @@ use std::{io, path::PathBuf};
 
 use thiserror::Error;
 
-use super::{char_p_to_string, ort, sys};
+use super::{char_p_to_string, ort, sys, tensor::TensorElementDataType};
 
 /// Type alias for the Result type returned by ORT functions.
 pub type OrtResult<T> = std::result::Result<T, OrtError>;
@@ -101,7 +101,15 @@ pub enum OrtError {
 	UndefinedTensorElementType,
 	/// Could not retrieve model metadata.
 	#[error("Failed to retrieve model metadata: {0}")]
-	GetModelMetadata(OrtApiError)
+	GetModelMetadata(OrtApiError),
+	/// The user tried to extract the wrong type of tensor from the underlying data
+	#[error("Data type mismatch: was {:?}, tried to convert to {:?}", actual, requested)]
+	DataTypeMismatch {
+		/// The actual type of the ort output
+		actual: TensorElementDataType,
+		/// The type corresponding to the attempted conversion into a Rust type, not equal to `actual`
+		requested: TensorElementDataType
+	}
 }
 
 /// Error used when the input dimensions defined in the model and passed from an inference call do not match.
