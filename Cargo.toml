@@ -35,6 +35,7 @@ use-half-intrinsics = [ "half/use-intrinsics" ]
 # used to prevent issues with docs.rs
 disable-build-script = []
 serde = [ "serde_crate", "ndarray/serde" ]
+senflow = []
 
 # modules
 onnx = [ "tracing", "lazy_static" ]
